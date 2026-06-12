@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { EventsTimeline } from "@/components/EventsTimeline";
+import { GroupTable } from "@/components/GroupTable";
 import { Lineups } from "@/components/Lineups";
 import { EyeIcon, Flag, StarIcon } from "@/components/MatchCard";
 import { MatchStats } from "@/components/MatchStats";
@@ -11,7 +12,7 @@ import { useLiveMatches } from "@/hooks/useLiveMatches";
 import { useUserState } from "@/hooks/useUserState";
 import { isInLiveWindow, liveWindowFor } from "@/lib/liveWindow";
 import { melbourneDateTimeShort } from "@/lib/time";
-import type { Match, MatchSummary, TeamSide } from "@/lib/types";
+import type { GroupStanding, Match, MatchSummary, TeamSide } from "@/lib/types";
 
 const ROUND_LABELS: Record<string, string> = {
   "group-stage": "Group stage",
@@ -116,14 +117,16 @@ function TabPlaceholder({ text }: { text: string }) {
   );
 }
 
-type DetailTab = "stats" | "events" | "lineups" | "watch";
+type DetailTab = "stats" | "events" | "lineups" | "table" | "watch";
 
 export function MatchDetailClient({
   initialMatch,
   initialSummary,
+  groupTable,
 }: {
   initialMatch: Match;
   initialSummary: MatchSummary;
+  groupTable: GroupStanding | null;
 }) {
   const [tab, setTab] = useState<DetailTab>("stats");
   // Reuse the smart polling hook with a single match: it polls at 4s only
@@ -230,6 +233,7 @@ export function MatchDetailClient({
             ["stats", "Stats"],
             ["events", "Events"],
             ["lineups", "Lineups"],
+            ...(groupTable ? [["table", "Table"]] : []),
             ["watch", "Watch"],
           ] as Array<[DetailTab, string]>
         ).map(([value, label]) => (
@@ -276,6 +280,14 @@ export function MatchDetailClient({
         ))}
 
       {tab === "lineups" && <Lineups lineups={summary.lineups} />}
+
+      {tab === "table" && groupTable && (
+        <GroupTable
+          group={groupTable.group}
+          rows={groupTable.rows}
+          highlightTeamIds={[match.home.id, match.away.id]}
+        />
+      )}
 
       {tab === "watch" && (
         <div className="space-y-4">
