@@ -15,6 +15,8 @@ create table if not exists sbs_links (
   sbs_extended_url text,
   sbs_full_url text,
   sbs_mini_url text,
+  -- Short highlights video id from youtube.com/@SBSSportau (embeddable)
+  yt_highlights_id text,
   last_checked timestamptz,
   attempts int default 0,
   -- Per-type attempt caps (spec: stop after 20 attempts per match per link

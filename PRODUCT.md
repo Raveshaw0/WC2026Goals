@@ -49,7 +49,15 @@ SBS On Demand holds the Australian rights. `/api/check-sbs` fetches the JSON doc
 
 Triggering: the home page fires a non-blocking call on load (self-throttled to one hub fetch per 5 minutes), and `.github/workflows/sbs-links.yml` curls the deployed endpoint every 15 minutes between 08:00 and 20:00 UTC as a backstop (Vercel Hobby crons are daily-only, so GitHub Actions does the scheduling).
 
-The UI never depends on discovery succeeding: during the live window the button falls back to the SBS hub page, and finished matches show a prefilled SBS search link until the per-cut buttons activate. Match detail shows Highlights, Extended and Full Match buttons in that order; finished match cards get a compact highlights button. Clicking any SBS video link auto-marks the match watched.
+The UI never depends on discovery succeeding: during the live window the button falls back to the SBS hub page, and finished matches show a prefilled SBS search link until the per-cut buttons activate. Match detail shows Highlights, Extended and Full Match buttons in that order under an "SBS links" heading; finished match cards get a compact highlights button. Clicking any SBS video link auto-marks the match watched.
+
+### YouTube highlights embed
+
+SBS Sport mirrors the short highlights cut to YouTube (@SBSSportau), which can be embedded (SBS On Demand itself is DRM gated, links only). The same check-sbs run parses the channel's Videos page (`ytInitialData`), matches titles on both team names plus "highlights" (knockout-proof: no dependence on title structure), and stores the video id. Finished matches embed the player above the SBS links on the detail page via youtube-nocookie.com.
+
+### Issue reporting
+
+A red flag button in the header opens a "Something is broken" box; reports POST to `/api/report` and are emailed to raveshaw@gmail.com via Resend (requires `RESEND_API_KEY`, from the verified send.alextestingstuff.com domain). Rate limited 5/min/IP.
 
 No SBS audio or video is embedded. SBS playback is DRM and account gated; we link out only.
 
@@ -76,6 +84,7 @@ Dark theme, system font stack, mobile-first with desktop grid layouts. Only imag
 ```
 SUPABASE_URL=https://YOUR-PROJECT-REF.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=YOUR-SERVICE-ROLE-KEY
+RESEND_API_KEY=YOUR-RESEND-KEY   # optional, powers the issue report button
 ```
 
 Both are server-side only and never exposed to the client. The app runs without them (matches work, sync and SBS link storage degrade gracefully), but set both for full functionality.

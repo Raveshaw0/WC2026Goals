@@ -31,6 +31,7 @@ export default async function MatchPage({
       highlights: sbs.sbs_highlights_url ?? null,
       extended: sbs.sbs_extended_url ?? null,
       full: sbs.sbs_full_url ?? null,
+      ytHighlightsId: sbs.yt_highlights_id ?? null,
     };
   }
 

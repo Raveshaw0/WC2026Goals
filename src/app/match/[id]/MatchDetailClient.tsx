@@ -118,6 +118,25 @@ export function MatchDetailClient({ initialMatch }: { initialMatch: Match }) {
         )}
       </div>
 
+      {finished && match.sbs?.ytHighlightsId && (
+        <section>
+          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-zinc-400">
+            Highlights
+          </h2>
+          <div className="overflow-hidden rounded-2xl border border-edge bg-card">
+            <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+              <iframe
+                src={`https://www.youtube-nocookie.com/embed/${match.sbs.ytHighlightsId}`}
+                title={`${match.home.name} v ${match.away.name} highlights`}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                className="absolute inset-0 h-full w-full"
+              />
+            </div>
+          </div>
+        </section>
+      )}
+
       <SbsButtons match={match} />
 
       <div className="flex gap-2">

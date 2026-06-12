@@ -19,6 +19,7 @@ export async function withSbsLinks(matches: Match[]): Promise<Match[]> {
         highlights: row.sbs_highlights_url ?? null,
         extended: row.sbs_extended_url ?? null,
         full: row.sbs_full_url ?? null,
+        ytHighlightsId: row.yt_highlights_id ?? null,
       },
     };
   });

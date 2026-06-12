@@ -8,6 +8,14 @@ Risks: the API is undocumented, and the key or the hub slug could change. Mitiga
 
 Manual override: you can paste a URL directly into the `sbs_links` row in Supabase and the UI will use it.
 
+## YouTube highlights discovery parses ytInitialData
+
+The embedded highlights player on match detail pages comes from SBS Sport's YouTube channel (@SBSSportau). Discovery parses the `ytInitialData` JSON inside the channel's Videos page, currently shaped as `lockupViewModel` items. YouTube reshapes this periodically (it changed from `videoRenderer` to `lockupViewModel` sometime before June 2026). Matching is on both team names plus the word "highlights" in the title, so SBS retitling for knockout rounds will not break it, but a YouTube markup change would. If embeds stop appearing for new matches while SBS links still work, the parser in `fetchYoutubeHighlights()` is the suspect. The channel only lists ~30 recent uploads, so discovery must run within a few days of each match (the 15-minute GitHub Action makes this a non-issue in practice). Stored ids are never deleted.
+
+## Issue reports require RESEND_API_KEY
+
+The "Something is broken" button posts to `/api/report`, which emails raveshaw@gmail.com via Resend from the verified send.alextestingstuff.com domain. Without `RESEND_API_KEY` set, the endpoint returns 503 and the UI shows "Could not send".
+
 ## Rate limiting and throttles are per-instance
 
 `/api/state` rate limiting (30 req/min/IP) and the `/api/check-sbs` self-throttle use in-memory maps. On Vercel, each serverless instance has its own map, so the effective limit is per instance, not global. Acceptable for a personal app; the DB-level `last_checked` gate on SBS checks holds regardless of instance count.

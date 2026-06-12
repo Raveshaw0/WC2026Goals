@@ -21,6 +21,7 @@ const EMPTY: SbsMatchLinks = {
   highlights: null,
   extended: null,
   full: null,
+  ytHighlightsId: null,
 };
 
 // During the live window: one prominent live button (falls back to the SBS
@@ -41,21 +42,30 @@ export function SbsButtons({ match }: { match: Match }) {
   const inWindow = isInLiveWindow(match, now);
   const finished = match.status === "finished";
 
+  const heading = (
+    <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-zinc-400">
+      SBS links
+    </h2>
+  );
+
   if (inWindow) {
     return (
-      <a
-        href={links.live ?? SBS_COLLECTION}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block rounded-xl bg-accent px-4 py-3 text-center text-sm font-bold text-surface transition-opacity hover:opacity-90"
-      >
-        Watch live on SBS
-        {!links.live && (
-          <span className="block text-xs font-normal opacity-75">
-            Opens the SBS World Cup hub
-          </span>
-        )}
-      </a>
+      <section>
+        {heading}
+        <a
+          href={links.live ?? SBS_COLLECTION}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block rounded-xl bg-accent px-4 py-3 text-center text-sm font-bold text-surface transition-opacity hover:opacity-90"
+        >
+          Watch live on SBS
+          {!links.live && (
+            <span className="block text-xs font-normal opacity-75">
+              Opens the SBS World Cup hub
+            </span>
+          )}
+        </a>
+      </section>
     );
   }
 
@@ -69,7 +79,8 @@ export function SbsButtons({ match }: { match: Match }) {
   const anyLink = buttons.some((b) => b.url);
 
   return (
-    <div className="space-y-2">
+    <section className="space-y-2">
+      {heading}
       <div className="grid grid-cols-3 gap-2">
         {buttons.map((b) =>
           b.url ? (
@@ -112,6 +123,6 @@ export function SbsButtons({ match }: { match: Match }) {
           </span>
         </a>
       )}
-    </div>
+    </section>
   );
 }

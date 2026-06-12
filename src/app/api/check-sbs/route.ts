@@ -22,6 +22,12 @@ const WATCH_BASE = "https://www.sbs.com.au/ondemand/watch/";
 const UA =
   "Mozilla/5.0 (compatible; wc26-tracker/1.0; personal World Cup tracker; +https://wc2026.alextestingstuff.com)";
 
+// SBS Sport also posts the short highlights cut to YouTube, which we can
+// embed (unlike SBS On Demand, which is DRM and login gated).
+const YT_CHANNEL_URL = "https://www.youtube.com/@SBSSportau/videos";
+const YT_BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
+
 // Self-throttle: the home page fires this on every load. One hub fetch per
 // 5 minutes per instance is plenty.
 let lastRun = 0;
@@ -80,6 +86,56 @@ async function fetchHubRails(): Promise<HubRails | null> {
   }
 }
 
+// Parse the channel's Videos tab: ytInitialData embeds every recent upload as
+// a lockupViewModel with contentId (the video id) and a title. Titles look
+// like "Korea Republic v Czechia Highlights: FIFA World Cup 2026 Group A";
+// matching is on both team names plus the word "highlights", so it survives
+// whatever title format SBS uses in the knockout rounds.
+async function fetchYoutubeHighlights(): Promise<RailItem[]> {
+  try {
+    const res = await fetch(YT_CHANNEL_URL, {
+      headers: {
+        "User-Agent": YT_BROWSER_UA,
+        "Accept-Language": "en-AU,en;q=0.9",
+        Cookie: "CONSENT=YES+cb; SOCS=CAI",
+      },
+      next: { revalidate: 600 },
+    });
+    if (!res.ok) throw new Error(`youtube ${res.status}`);
+    const html = await res.text();
+    const m = html.match(/var ytInitialData = (\{[\s\S]*?\});<\/script>/);
+    if (!m) throw new Error("ytInitialData not found");
+    const data = JSON.parse(m[1]);
+    const out: RailItem[] = [];
+    const walk = (o: unknown): void => {
+      if (Array.isArray(o)) {
+        for (const v of o) walk(v);
+        return;
+      }
+      if (typeof o !== "object" || o === null) return;
+      const rec = o as Record<string, any>;
+      const lv = rec.lockupViewModel;
+      if (lv && typeof lv === "object") {
+        const id = lv.contentId;
+        const title = lv.metadata?.lockupMetadataViewModel?.title?.content;
+        if (
+          typeof id === "string" &&
+          typeof title === "string" &&
+          title.toLowerCase().includes("highlights")
+        ) {
+          out.push({ title, url: id }); // url field carries the video id
+        }
+      }
+      for (const v of Object.values(rec)) walk(v);
+    };
+    walk(data);
+    return out;
+  } catch (err) {
+    console.error("[check-sbs] youtube fetch failed:", err);
+    return [];
+  }
+}
+
 // Rail titles look like "Korea Republic v Czechia: Group A" or, for live,
 // "FIFA World Cup 2026™: Canada v Bosnia and Herzegovina: Group B: Live
 // Stream". Both team names must appear (alias-aware), which survives all of
@@ -106,7 +162,11 @@ async function handle(): Promise<NextResponse> {
   }
   lastRun = now;
 
-  const [all, rails] = await Promise.all([fetchAllMatches(), fetchHubRails()]);
+  const [all, rails, ytVideos] = await Promise.all([
+    fetchAllMatches(),
+    fetchHubRails(),
+    fetchYoutubeHighlights(),
+  ]);
   if (!all.data) return NextResponse.json({ skipped: "no match data" });
   if (!rails) return NextResponse.json({ skipped: "hub unavailable" });
 
@@ -126,6 +186,7 @@ async function handle(): Promise<NextResponse> {
       sbs_extended_url: findForMatch(rails.extended, match),
       sbs_full_url: findForMatch(rails.full, match),
       sbs_mini_url: findForMatch(rails.mini, match),
+      yt_highlights_id: findForMatch(ytVideos, match),
     };
     if (!Object.values(found).some(Boolean)) continue;
 
@@ -158,6 +219,7 @@ async function handle(): Promise<NextResponse> {
     railSizes: Object.fromEntries(
       Object.entries(rails).map(([k, v]) => [k, v.length])
     ),
+    ytHighlights: ytVideos.length,
     updated,
   });
 }

@@ -43,6 +43,7 @@ export interface SbsMatchLinks {
   highlights: string | null;
   extended: string | null;
   full: string | null;
+  ytHighlightsId: string | null; // YouTube video id from @SBSSportau
 }
 
 export interface Match {
@@ -102,6 +103,7 @@ export interface SbsLinkRow {
   sbs_extended_url: string | null;
   sbs_full_url: string | null;
   sbs_mini_url: string | null;
+  yt_highlights_id: string | null;
   last_checked: string | null;
   attempts: number;
   attempts_live: number;
