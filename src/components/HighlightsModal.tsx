@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 // Fullscreen-overlay YouTube player so highlights play without leaving the
-// app. youtube-nocookie + autoplay; backdrop tap or Escape closes.
+// app. youtube-nocookie + autoplay; backdrop tap or Escape closes. Rendered
+// through a portal: watched cards are dimmed with opacity, which creates a
+// stacking context that would otherwise trap the overlay underneath the
+// cards that follow it.
 export function HighlightsModal({
   videoId,
   title,
@@ -25,7 +29,7 @@ export function HighlightsModal({
     };
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4"
       onClick={onClose}
@@ -61,6 +65,7 @@ export function HighlightsModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

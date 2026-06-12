@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { HighlightsModal } from "@/components/HighlightsModal";
 import { useUserState } from "@/hooks/useUserState";
@@ -32,7 +32,40 @@ function Flag({ team, size = 24 }: { team: TeamSide; size?: number }) {
   );
 }
 
+// "1d 4h 23m" style countdown, recomputed every minute. Client-only after
+// mount so the server-rendered HTML (which has no stable "now") matches.
+function useKickoffCountdown(kickoffIso: string, enabled: boolean): string | null {
+  const [text, setText] = useState<string | null>(null);
+  useEffect(() => {
+    if (!enabled) {
+      setText(null);
+      return;
+    }
+    const compute = () => {
+      const diff = new Date(kickoffIso).getTime() - Date.now();
+      if (diff <= 0) {
+        setText("kickoff soon");
+        return;
+      }
+      const mins = Math.floor(diff / 60_000);
+      const d = Math.floor(mins / 1440);
+      const h = Math.floor((mins % 1440) / 60);
+      const m = mins % 60;
+      const parts = d > 0 ? `${d}d ${h}h ${m}m` : h > 0 ? `${h}h ${m}m` : `${m}m`;
+      setText(`kickoff in ${parts}`);
+    };
+    compute();
+    const t = setInterval(compute, 60_000);
+    return () => clearInterval(t);
+  }, [kickoffIso, enabled]);
+  return text;
+}
+
 function StatusPill({ match }: { match: Match }) {
+  const countdown = useKickoffCountdown(
+    match.kickoff,
+    match.status === "scheduled"
+  );
   if (match.status === "live") {
     return (
       <span className="flex items-center gap-1.5 text-xs font-semibold text-live">
@@ -53,6 +86,9 @@ function StatusPill({ match }: { match: Match }) {
   return (
     <span className="text-xs font-medium text-zinc-400">
       {melbourneTime(match.kickoff)}
+      {countdown && (
+        <span className="ml-1 text-zinc-600">({countdown})</span>
+      )}
     </span>
   );
 }
@@ -111,13 +147,16 @@ export function MatchCard({ match }: { match: Match }) {
   return (
     <div
       className={
-        "relative rounded-2xl border border-edge bg-card transition-opacity " +
-        (isWatched ? "opacity-60" : "")
+        "relative rounded-2xl border bg-card " +
+        (isWatched ? "border-accent/40 ring-1 ring-accent/25" : "border-edge")
       }
     >
       <Link
         href={`/match/${match.id}`}
-        className="block px-4 py-3"
+        className={
+          "block px-4 py-3 transition-opacity " +
+          (isWatched ? "opacity-50" : "")
+        }
         aria-label={`${match.home.name} v ${match.away.name}`}
       >
         <div className="mb-2 flex items-center justify-between text-xs text-zinc-500">
