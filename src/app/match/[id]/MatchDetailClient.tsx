@@ -1,11 +1,17 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
+import { EventsTimeline } from "@/components/EventsTimeline";
+import { Lineups } from "@/components/Lineups";
 import { EyeIcon, Flag, StarIcon } from "@/components/MatchCard";
+import { MatchStats } from "@/components/MatchStats";
 import { SbsButtons } from "@/components/SbsButtons";
 import { useLiveMatches } from "@/hooks/useLiveMatches";
 import { useUserState } from "@/hooks/useUserState";
+import { liveWindowFor } from "@/lib/liveWindow";
 import { melbourneDateTimeShort } from "@/lib/time";
-import type { Goal, Match, TeamSide } from "@/lib/types";
+import type { Match, MatchSummary, TeamSide } from "@/lib/types";
 
 const ROUND_LABELS: Record<string, string> = {
   "group-stage": "Group stage",
@@ -17,20 +23,12 @@ const ROUND_LABELS: Record<string, string> = {
   final: "Final",
 };
 
-function goalLabel(g: Goal): string {
-  let label = `${g.scorer} ${g.minute}`;
-  if (g.penalty) label += " (pen)";
-  if (g.ownGoal) label += " (og)";
-  return label;
-}
-
 function TeamColumn({ team }: { team: TeamSide }) {
   const { favouriteTeams, toggleFavouriteTeam } = useUserState();
   // Knockout placeholders ("Group A Winner", "Semifinal 1 Loser") are not
   // real teams yet
   const isRealTeam =
-    /^[0-9]+$/.test(team.id) &&
-    !/Winner|Loser|Place/.test(team.name);
+    /^[0-9]+$/.test(team.id) && !/Winner|Loser|Place/.test(team.name);
   const isFav = favouriteTeams.has(team.id);
   return (
     <div className="flex flex-1 flex-col items-center gap-2 text-center">
@@ -56,11 +54,55 @@ function TeamColumn({ team }: { team: TeamSide }) {
   );
 }
 
-export function MatchDetailClient({ initialMatch }: { initialMatch: Match }) {
+// Poll the summary (events, stats, lineups) every 60s from 75 minutes before
+// kickoff (lineups publish ~1hr out) until the live window closes. The score
+// itself rides the faster 4s /api/live poll via useLiveMatches.
+function useSummaryPolling(match: Match, initial: MatchSummary): MatchSummary {
+  const [summary, setSummary] = useState(initial);
+  useEffect(() => {
+    const shouldPoll = () => {
+      if (match.status === "finished" || match.status === "postponed") {
+        return false;
+      }
+      const ko = new Date(match.kickoff).getTime();
+      const { end } = liveWindowFor(match);
+      const now = Date.now();
+      return now >= ko - 75 * 60 * 1000 && now <= end;
+    };
+    if (!shouldPoll()) return;
+
+    const tick = async () => {
+      if (document.hidden || !shouldPoll()) return;
+      try {
+        const res = await fetch(`/api/match/${match.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.summary) setSummary(data.summary);
+        }
+      } catch {
+        // transient; next tick retries
+      }
+    };
+    const t = setInterval(() => void tick(), 60_000);
+    void tick();
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [match.id, match.status]);
+  return summary;
+}
+
+export function MatchDetailClient({
+  initialMatch,
+  initialSummary,
+}: {
+  initialMatch: Match;
+  initialSummary: MatchSummary;
+}) {
   // Reuse the smart polling hook with a single match: it polls at 4s only
   // inside this match's live window, 5min otherwise, and pauses when hidden.
   const { matches } = useLiveMatches([initialMatch]);
   const match = matches[0] ?? initialMatch;
+  const summary = useSummaryPolling(match, initialSummary);
   const { watched, favourites, toggleWatched, toggleFavourite } =
     useUserState();
   const isWatched = watched.has(match.id);
@@ -71,10 +113,6 @@ export function MatchDetailClient({ initialMatch }: { initialMatch: Match }) {
   const finished = match.status === "finished";
   const shootout =
     match.home.shootoutScore !== null && match.away.shootoutScore !== null;
-
-  const goals = match.goals.filter((g) => !g.shootout);
-  const homeGoals = goals.filter((g) => g.teamId === match.home.id);
-  const awayGoals = goals.filter((g) => g.teamId === match.away.id);
 
   return (
     <div className="space-y-4">
@@ -123,23 +161,9 @@ export function MatchDetailClient({ initialMatch }: { initialMatch: Match }) {
           </div>
           <TeamColumn team={match.away} />
         </div>
-
-        {goals.length > 0 && (
-          <div className="mt-4 flex gap-3 border-t border-edge pt-3 text-xs text-zinc-400">
-            <div className="flex-1 space-y-0.5 text-right">
-              {homeGoals.map((g, i) => (
-                <div key={i}>{goalLabel(g)}</div>
-              ))}
-            </div>
-            <div className="text-zinc-600">goals</div>
-            <div className="flex-1 space-y-0.5">
-              {awayGoals.map((g, i) => (
-                <div key={i}>{goalLabel(g)}</div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
+
+      <EventsTimeline events={summary.events} match={match} />
 
       {finished && match.sbs?.ytHighlightsId && (
         <section>
@@ -194,6 +218,15 @@ export function MatchDetailClient({ initialMatch }: { initialMatch: Match }) {
           {isFavourite ? "Favourite" : "Add favourite"}
         </button>
       </div>
+
+      <MatchStats stats={summary.stats} />
+
+      <section>
+        <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-zinc-400">
+          Lineups
+        </h2>
+        <Lineups lineups={summary.lineups} />
+      </section>
     </div>
   );
 }

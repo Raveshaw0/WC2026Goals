@@ -88,8 +88,73 @@ export interface TeamLineup {
   bench: LineupPlayer[];
 }
 
+export type MatchEventType =
+  | "goal"
+  | "yellow"
+  | "red"
+  | "sub"
+  | "halftime"
+  | "fulltime";
+
+export interface MatchEvent {
+  minute: string; // "67'", "90'+2'"
+  type: MatchEventType;
+  side: "home" | "away" | "neutral";
+  player: string | null; // scorer / carded player / player coming on
+  secondary: string | null; // assister / player coming off
+  penalty: boolean;
+  ownGoal: boolean;
+  homeScore: number | null; // running score, set on goals and period rows
+  awayScore: number | null;
+}
+
+export interface MatchStatPair {
+  label: string;
+  home: string;
+  away: string;
+  homePct: number; // 0..1 share for the bar split
+}
+
 export interface MatchSummary {
   lineups: TeamLineup[]; // empty when not yet published
+  events: MatchEvent[]; // empty until kickoff
+  stats: MatchStatPair[]; // empty until ESPN publishes the boxscore
+}
+
+export interface StandingRow {
+  teamId: string;
+  name: string;
+  flag: string | null;
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDiff: number;
+  points: number;
+  rank: number;
+}
+
+export interface GroupStanding {
+  group: string; // "A".."L"
+  rows: StandingRow[];
+}
+
+export interface LeaderRow {
+  name: string;
+  teamId: string;
+  teamName: string;
+  flag: string | null;
+  value: number;
+  secondary: number; // assists: 0; discipline: red cards; scorers: 0
+}
+
+export interface LeadersPayload {
+  scorers: LeaderRow[];
+  assists: LeaderRow[];
+  discipline: LeaderRow[]; // value = yellows, secondary = reds
+  lastUpdated: string;
 }
 
 export interface SbsLinkRow {

@@ -2,11 +2,17 @@ import "server-only";
 
 import type {
   Goal,
+  GroupStanding,
+  LeaderRow,
+  LeadersPayload,
   LineupPlayer,
   Match,
+  MatchEvent,
+  MatchStatPair,
   MatchStatus,
   MatchSummary,
   Round,
+  StandingRow,
   TeamLineup,
   TeamSide,
 } from "./types";
@@ -261,12 +267,145 @@ function mapLineupPlayer(p: any): LineupPlayer {
   };
 }
 
+// keyEvents -> timeline. Goals carry [scorer, assister] in participants;
+// substitutions carry [on, off] ("X replaces Y" in ESPN commentary). The
+// running score is recomputed here because keyEvents do not carry one.
+function mapEvents(raw: any, homeTeamId: string): MatchEvent[] {
+  const out: MatchEvent[] = [];
+  let home = 0;
+  let away = 0;
+  for (const k of raw?.keyEvents ?? []) {
+    const typeText = String(k?.type?.text ?? "");
+    const minute = String(k?.clock?.displayValue ?? "");
+    const teamId = String(k?.team?.id ?? "");
+    const side: MatchEvent["side"] = !teamId
+      ? "neutral"
+      : teamId === homeTeamId
+        ? "home"
+        : "away";
+    const participants: string[] = (k?.participants ?? [])
+      .map((p: any) => p?.athlete?.displayName)
+      .filter((n: any): n is string => typeof n === "string");
+
+    const isGoal =
+      typeText.startsWith("Goal") || typeText === "Penalty - Scored";
+    const ownGoal = typeText.includes("Own Goal");
+    if (isGoal || ownGoal) {
+      // Own goals count for the opposition.
+      const scoringSide = ownGoal ? (side === "home" ? "away" : "home") : side;
+      if (scoringSide === "home") home++;
+      else away++;
+      out.push({
+        minute,
+        type: "goal",
+        side,
+        player: participants[0] ?? null,
+        secondary: ownGoal || typeText === "Penalty - Scored" ? null : participants[1] ?? null,
+        penalty: typeText === "Penalty - Scored",
+        ownGoal,
+        homeScore: home,
+        awayScore: away,
+      });
+      continue;
+    }
+    if (typeText === "Yellow Card" || typeText === "Red Card") {
+      out.push({
+        minute,
+        type: typeText === "Yellow Card" ? "yellow" : "red",
+        side,
+        player: participants[0] ?? null,
+        secondary: null,
+        penalty: false,
+        ownGoal: false,
+        homeScore: null,
+        awayScore: null,
+      });
+      continue;
+    }
+    if (typeText === "Substitution") {
+      out.push({
+        minute,
+        type: "sub",
+        side,
+        player: participants[0] ?? null, // coming on
+        secondary: participants[1] ?? null, // coming off
+        penalty: false,
+        ownGoal: false,
+        homeScore: null,
+        awayScore: null,
+      });
+      continue;
+    }
+    if (typeText === "Halftime" || typeText === "End Regular Time") {
+      out.push({
+        minute: "",
+        type: typeText === "Halftime" ? "halftime" : "fulltime",
+        side: "neutral",
+        player: null,
+        secondary: null,
+        penalty: false,
+        ownGoal: false,
+        homeScore: home,
+        awayScore: away,
+      });
+    }
+  }
+  return out;
+}
+
+// Curated boxscore stats in LiveScore-ish order. ESPN's name -> our label.
+const STAT_PICKS: Array<{ name: string; label: string; pct?: boolean }> = [
+  { name: "possessionPct", label: "Possession %", pct: true },
+  { name: "totalShots", label: "Shots" },
+  { name: "shotsOnTarget", label: "Shots on target" },
+  { name: "wonCorners", label: "Corner kicks" },
+  { name: "foulsCommitted", label: "Fouls" },
+  { name: "offsides", label: "Offsides" },
+  { name: "yellowCards", label: "Yellow cards" },
+  { name: "redCards", label: "Red cards" },
+  { name: "saves", label: "Goalkeeper saves" },
+  { name: "totalCrosses", label: "Crosses" },
+  { name: "passPct", label: "Pass completion %", pct: true },
+];
+
+function mapStats(raw: any, homeTeamId: string): MatchStatPair[] {
+  const teams: any[] = raw?.boxscore?.teams ?? [];
+  if (teams.length < 2) return [];
+  const homeRaw = teams.find((t) => String(t?.team?.id) === homeTeamId) ?? teams[0];
+  const awayRaw = teams.find((t) => t !== homeRaw) ?? teams[1];
+  const get = (t: any, name: string) =>
+    (t?.statistics ?? []).find((s: any) => s?.name === name)?.displayValue;
+  const out: MatchStatPair[] = [];
+  for (const pick of STAT_PICKS) {
+    const h = get(homeRaw, pick.name);
+    const a = get(awayRaw, pick.name);
+    if (h === undefined || a === undefined) continue;
+    let hNum = parseFloat(h);
+    let aNum = parseFloat(a);
+    if (Number.isNaN(hNum) || Number.isNaN(aNum)) continue;
+    // passPct/shotPct style values arrive as 0..1 fractions
+    const display = (v: number) =>
+      pick.pct && v <= 1 ? `${Math.round(v * 100)}%` : pick.pct ? `${Math.round(v)}%` : String(v);
+    const total = hNum + aNum;
+    out.push({
+      label: pick.label,
+      home: display(hNum),
+      away: display(aNum),
+      homePct: total > 0 ? hNum / total : 0.5,
+    });
+  }
+  return out;
+}
+
 export async function fetchMatchSummary(
-  eventId: string
+  eventId: string,
+  homeTeamId: string = "",
+  finished: boolean = false
 ): Promise<FetchResult<MatchSummary>> {
   const result = await cachedJson(
     `${BASE}/summary?event=${encodeURIComponent(eventId)}`,
-    30,
+    // Finished matches never change; live ones refresh fast.
+    finished ? 86400 : 30,
     `summary-${eventId}`,
     (raw) => {
       if (typeof raw !== "object" || raw === null) {
@@ -291,8 +430,195 @@ export async function fetchMatchSummary(
     });
   }
   return {
-    data: { lineups },
+    data: {
+      lineups,
+      events: mapEvents(result.data, homeTeamId),
+      stats: mapStats(result.data, homeTeamId),
+    },
     stale: result.stale,
     lastUpdated: result.lastUpdated,
+  };
+}
+
+// ---- group standings ----
+
+export async function fetchGroupStandings(): Promise<
+  FetchResult<GroupStanding[]>
+> {
+  const result = await cachedJson(
+    STANDINGS_URL,
+    300,
+    "standings-tables",
+    (raw) => {
+      const children = (raw as any)?.children;
+      if (!Array.isArray(children)) throw new Error("unexpected standings shape");
+      return children;
+    }
+  );
+  if (!result.data) {
+    return { data: null, stale: true, lastUpdated: result.lastUpdated };
+  }
+  const stat = (entry: any, name: string): number =>
+    Number(
+      (entry?.stats ?? []).find((s: any) => s?.name === name)?.value ?? 0
+    );
+  const groups: GroupStanding[] = [];
+  for (const child of result.data) {
+    const letter = String(child?.name ?? "").replace(/^Group\s+/i, "").trim();
+    const rows: StandingRow[] = [];
+    for (const entry of child?.standings?.entries ?? []) {
+      const team = entry?.team ?? {};
+      rows.push({
+        teamId: String(team.id ?? ""),
+        name: String(team.displayName ?? ""),
+        flag:
+          team.logos?.[0]?.href ??
+          (team.id
+            ? `https://a.espncdn.com/i/teamlogos/countries/500/${String(
+                team.abbreviation ?? ""
+              ).toLowerCase()}.png`
+            : null),
+        played: stat(entry, "gamesPlayed"),
+        wins: stat(entry, "wins"),
+        draws: stat(entry, "ties"),
+        losses: stat(entry, "losses"),
+        goalsFor: stat(entry, "pointsFor"),
+        goalsAgainst: stat(entry, "pointsAgainst"),
+        goalDiff: stat(entry, "pointDifferential"),
+        points: stat(entry, "points"),
+        rank: stat(entry, "rank"),
+      });
+    }
+    rows.sort((a, b) => a.rank - b.rank);
+    groups.push({ group: letter, rows });
+  }
+  groups.sort((a, b) => a.group.localeCompare(b.group));
+  return { data: groups, stale: result.stale, lastUpdated: result.lastUpdated };
+}
+
+// ---- tournament leaders, computed from match data ----
+// No working ESPN leaders endpoint exists for this league, but everything is
+// derivable: scorers and cards from the scoreboard details (one cached call,
+// near-live), assists from per-match summaries (the [scorer, assister]
+// participant pairs), which are immutable once a match finishes.
+
+interface TallyEntry {
+  name: string;
+  teamId: string;
+  value: number;
+  secondary: number;
+}
+
+function leaderRows(
+  tally: Map<string, TallyEntry>,
+  teamNames: Map<string, { name: string; flag: string | null }>,
+  limit: number
+): LeaderRow[] {
+  return Array.from(tally.values())
+    .sort((a, b) => b.value - a.value || b.secondary - a.secondary || a.name.localeCompare(b.name))
+    .slice(0, limit)
+    .map((t) => ({
+      name: t.name,
+      teamId: t.teamId,
+      teamName: teamNames.get(t.teamId)?.name ?? "",
+      flag: teamNames.get(t.teamId)?.flag ?? null,
+      value: t.value,
+      secondary: t.secondary,
+    }));
+}
+
+export async function fetchLeaders(): Promise<FetchResult<LeadersPayload>> {
+  const all = await fetchAllMatches();
+  if (!all.data) {
+    return { data: null, stale: true, lastUpdated: all.lastUpdated };
+  }
+
+  const teamNames = new Map<string, { name: string; flag: string | null }>();
+  for (const m of all.data) {
+    teamNames.set(m.home.id, { name: m.home.name, flag: m.home.flag });
+    teamNames.set(m.away.id, { name: m.away.name, flag: m.away.flag });
+  }
+
+  const scorers = new Map<string, TallyEntry>();
+  const discipline = new Map<string, TallyEntry>();
+  const assists = new Map<string, TallyEntry>();
+  const bump = (
+    map: Map<string, TallyEntry>,
+    name: string,
+    teamId: string,
+    value: number,
+    secondary: number
+  ) => {
+    const key = `${name}|${teamId}`;
+    const cur = map.get(key) ?? { name, teamId, value: 0, secondary: 0 };
+    cur.value += value;
+    cur.secondary += secondary;
+    map.set(key, cur);
+  };
+
+  const started = all.data.filter(
+    (m) => m.status === "finished" || m.status === "live" || m.status === "halftime"
+  );
+
+  // Scorers from scoreboard goal details (own goals and shootouts excluded).
+  for (const m of started) {
+    for (const g of m.goals) {
+      if (g.shootout || g.ownGoal || g.scorer === "Unknown") continue;
+      bump(scorers, g.scorer, g.teamId, 1, 0);
+    }
+  }
+
+  // Assists from summaries; cards also live there but details already carry
+  // them, so summaries are only fetched for matches that have started.
+  const summaries = await Promise.all(
+    started.map((m) =>
+      fetchMatchSummary(m.id, m.home.id, m.status === "finished").then(
+        (r) => ({ match: m, summary: r.data })
+      )
+    )
+  );
+  for (const { match, summary } of summaries) {
+    for (const ev of summary?.events ?? []) {
+      if (ev.type === "goal" && ev.secondary && !ev.penalty && !ev.ownGoal) {
+        const teamId = ev.side === "home" ? match.home.id : match.away.id;
+        bump(assists, ev.secondary, teamId, 1, 0);
+      }
+      if ((ev.type === "yellow" || ev.type === "red") && ev.player) {
+        const teamId = ev.side === "home" ? match.home.id : match.away.id;
+        bump(
+          discipline,
+          ev.player,
+          teamId,
+          ev.type === "yellow" ? 1 : 0,
+          ev.type === "red" ? 1 : 0
+        );
+      }
+    }
+  }
+
+  return {
+    data: {
+      scorers: leaderRows(scorers, teamNames, 25),
+      assists: leaderRows(assists, teamNames, 25),
+      discipline: Array.from(discipline.values())
+        .sort(
+          (a, b) =>
+            b.secondary - a.secondary ||
+            b.value - a.value ||
+            a.name.localeCompare(b.name)
+        )
+        .slice(0, 25)
+        .map((t) => ({
+          name: t.name,
+          teamId: t.teamId,
+          teamName: teamNames.get(t.teamId)?.name ?? "",
+          flag: teamNames.get(t.teamId)?.flag ?? null,
+          value: t.value,
+          secondary: t.secondary,
+        })),
+      lastUpdated: new Date().toISOString(),
+    },
+    stale: all.stale,
+    lastUpdated: all.lastUpdated,
   };
 }

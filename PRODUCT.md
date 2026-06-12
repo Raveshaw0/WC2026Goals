@@ -5,8 +5,9 @@ Personal FIFA World Cup 2026 tracker. Next.js 14 App Router, TypeScript, Tailwin
 ## What it does
 
 - One landing page: the full 104-match schedule grouped by date (all times Australia/Melbourne), centered on today, stats panel up top, live scores polled smartly (4s during live windows, 5min otherwise, paused when tab hidden)
-- Header tabs filter the schedule: Schedule (all), Australia, Favourites (favourited matches plus all matches of followed teams)
-- Match detail with lineups, goal scorers, embedded YouTube highlights, SBS live and per-cut links, follow-team buttons
+- Header tabs: Schedule (all), Groups (all 12 group tables, 5 min refresh), Australia, Favourites (favourited matches plus all matches of followed teams), Stats (top scorers, assists, discipline, 15 min refresh)
+- Match detail with a LiveScore-style events timeline (goals with assists, cards, subs, running score), match stat bars (possession, shots, corners and more from ESPN's boxscore), lineups, embedded YouTube highlights, SBS live and per-cut links, follow-team buttons; events, stats and lineups poll every 60s from 75 minutes before kickoff until the live window closes
+- Tournament leaders are computed from match data (no ESPN leaders endpoint exists for this league): scorers and cards from the scoreboard goal details, assists from the per-match summary participant pairs, which match ESPN's own published stats
 - Card-level highlights popup: finished matches play the YouTube highlights in an in-app modal and auto-mark watched
 - Watched tracking, match favourites and team follows, synced across devices with a sync code (e.g. TIGER-42)
 - Stats: matches watched, goals seen (excluding shootout kicks) as count and percentage of all tournament goals
@@ -32,6 +33,7 @@ Goal data comes from the scoreboard `details` array (per-event goal records with
 |---|---|---|
 | `GET /api/matches` | All 104 matches + group map | fetch revalidate 300s |
 | `GET /api/live` | Matches in a rolling 3-day UTC window, for polling | fetch revalidate 4s |
+| `GET /api/match/[id]` | Mapped summary (events, stats, lineups) for live detail polling | fetch revalidate 30s live, 86400s finished |
 | `GET/POST /api/check-sbs` | SBS link discovery (live + highlights) | self-throttled, DB `last_checked` gated |
 | `GET/POST /api/state` | Sync state read, create, adopt, merge-update | no store, rate limited 30/min/IP |
 
