@@ -1,0 +1,17 @@
+name: SBS link discovery
+
+# Backstop for the lazy home-page trigger. Vercel Hobby crons only run daily,
+# so GitHub Actions does the 15-minute schedule instead, daytime UTC only
+# (covers Melbourne evenings and overnight US match windows).
+on:
+  schedule:
+    - cron: "*/15 8-19 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call check-sbs endpoint
+        run: |
+          curl -sS -m 50 -X POST "https://wc2026.alextestingstuff.com/api/check-sbs" || true

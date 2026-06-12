@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-surface text-zinc-200 antialiased;
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.live-dot {
+  animation: livePulse 1.6s ease-in-out infinite;
+}
+
+.progress-bar {
+  transition: width 600ms ease;
+}
+
+@keyframes statPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+.stat-pop {
+  animation: statPop 500ms ease;
+}
