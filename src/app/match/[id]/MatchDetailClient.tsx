@@ -9,7 +9,7 @@ import { MatchStats } from "@/components/MatchStats";
 import { SbsButtons } from "@/components/SbsButtons";
 import { useLiveMatches } from "@/hooks/useLiveMatches";
 import { useUserState } from "@/hooks/useUserState";
-import { liveWindowFor } from "@/lib/liveWindow";
+import { isInLiveWindow, liveWindowFor } from "@/lib/liveWindow";
 import { melbourneDateTimeShort } from "@/lib/time";
 import type { Match, MatchSummary, TeamSide } from "@/lib/types";
 
@@ -91,6 +91,33 @@ function useSummaryPolling(match: Match, initial: MatchSummary): MatchSummary {
   return summary;
 }
 
+function HighlightsEmbed({ match }: { match: Match }) {
+  if (!match.sbs?.ytHighlightsId) return null;
+  return (
+    <div className="overflow-hidden rounded-2xl border border-edge bg-card">
+      <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+        <iframe
+          src={`https://www.youtube-nocookie.com/embed/${match.sbs.ytHighlightsId}`}
+          title={`${match.home.name} v ${match.away.name} highlights`}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          className="absolute inset-0 h-full w-full"
+        />
+      </div>
+    </div>
+  );
+}
+
+function TabPlaceholder({ text }: { text: string }) {
+  return (
+    <div className="rounded-2xl border border-edge bg-card px-4 py-8 text-center text-sm text-zinc-400">
+      {text}
+    </div>
+  );
+}
+
+type DetailTab = "stats" | "events" | "lineups" | "watch";
+
 export function MatchDetailClient({
   initialMatch,
   initialSummary,
@@ -98,6 +125,7 @@ export function MatchDetailClient({
   initialMatch: Match;
   initialSummary: MatchSummary;
 }) {
+  const [tab, setTab] = useState<DetailTab>("stats");
   // Reuse the smart polling hook with a single match: it polls at 4s only
   // inside this match's live window, 5min otherwise, and pauses when hidden.
   const { matches } = useLiveMatches([initialMatch]);
@@ -163,29 +191,6 @@ export function MatchDetailClient({
         </div>
       </div>
 
-      <EventsTimeline events={summary.events} match={match} />
-
-      {finished && match.sbs?.ytHighlightsId && (
-        <section>
-          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-zinc-400">
-            Highlights
-          </h2>
-          <div className="overflow-hidden rounded-2xl border border-edge bg-card">
-            <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
-              <iframe
-                src={`https://www.youtube-nocookie.com/embed/${match.sbs.ytHighlightsId}`}
-                title={`${match.home.name} v ${match.away.name} highlights`}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-                className="absolute inset-0 h-full w-full"
-              />
-            </div>
-          </div>
-        </section>
-      )}
-
-      <SbsButtons match={match} />
-
       <div className="flex gap-2">
         {finished && (
           <button
@@ -219,14 +224,68 @@ export function MatchDetailClient({
         </button>
       </div>
 
-      <MatchStats stats={summary.stats} />
+      <div className="flex gap-1">
+        {(
+          [
+            ["stats", "Stats"],
+            ["events", "Events"],
+            ["lineups", "Lineups"],
+            ["watch", "Watch"],
+          ] as Array<[DetailTab, string]>
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setTab(value)}
+            className={
+              "rounded-full px-3 py-1.5 text-sm font-medium transition-colors " +
+              (tab === value
+                ? "bg-accent/15 text-accent"
+                : "text-zinc-400 hover:text-zinc-200")
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-      <section>
-        <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-zinc-400">
-          Lineups
-        </h2>
-        <Lineups lineups={summary.lineups} />
-      </section>
+      {tab === "stats" && (
+        <div className="space-y-4">
+          {finished && <HighlightsEmbed match={match} />}
+          {summary.stats.length > 0 ? (
+            <MatchStats stats={summary.stats} />
+          ) : (
+            !(finished && match.sbs?.ytHighlightsId) && (
+              <TabPlaceholder
+                text={
+                  finished
+                    ? "Stats unavailable for this match"
+                    : "Stats appear once the match kicks off"
+                }
+              />
+            )
+          )}
+        </div>
+      )}
+
+      {tab === "events" &&
+        (summary.events.length > 0 ? (
+          <EventsTimeline events={summary.events} match={match} />
+        ) : (
+          <TabPlaceholder text="Events appear once the match kicks off" />
+        ))}
+
+      {tab === "lineups" && <Lineups lineups={summary.lineups} />}
+
+      {tab === "watch" && (
+        <div className="space-y-4">
+          {finished && <HighlightsEmbed match={match} />}
+          <SbsButtons match={match} />
+          {match.status === "scheduled" && !isInLiveWindow(match) && (
+            <TabPlaceholder text="The SBS live link appears here close to kickoff, highlights after full time" />
+          )}
+        </div>
+      )}
     </div>
   );
 }
