@@ -41,16 +41,15 @@ A match is in its live window from kickoff minus 5 minutes to kickoff plus 150 m
 
 ### SBS links
 
-SBS On Demand holds the Australian rights. Per-match URLs only exist once SBS publishes them, so `/api/check-sbs`:
+SBS On Demand holds the Australian rights. `/api/check-sbs` fetches the JSON document behind SBS's own World Cup hub page (`catalogue.pr.sbsod.com/pages/fifa-world-cup-2026`, public x-api-key from their browser bundle) and reads five named rails: Live & Upcoming, Highlights, Extended Highlights, Full Matches, Mini Matches. One fetch resolves every published match at once; no scraping.
 
-- For matches kicking off within 90 minutes or currently live: searches SBS for a live stream page, stores `sbs_live_url`
-- For matches finished within 48 hours with no highlights link and `last_checked` older than 15 minutes: searches for highlights, stores `sbs_highlights_url`
-- Team names matched loosely via the alias map in `src/lib/aliases.ts` (Korea Republic vs South Korea, USA vs United States, Turkiye vs Turkey, etc.)
-- Gives up after 20 attempts per match per link type (tracked in `attempts_live` / `attempts_highlights`; the spec's single `attempts` column is kept as a total but per-type caps required per-type counters)
+- Rail titles ("Korea Republic v Czechia: Group A") are matched to ESPN fixtures via the alias map in `src/lib/aliases.ts` (Korea Republic vs South Korea, Bosnia and Herzegovina vs Bosnia-Herzegovina, Turkiye vs Turkey, etc.)
+- Watch URLs are `sbs.com.au/ondemand/watch/{mpxMediaID}`
+- Stored links are never overwritten with nulls when a video ages off a rail
 
-Triggering: the home page fires a non-blocking call on load, and `.github/workflows/sbs-links.yml` curls the deployed endpoint every 15 minutes between 08:00 and 20:00 UTC as a backstop (Vercel Hobby crons are daily-only, so GitHub Actions does the scheduling).
+Triggering: the home page fires a non-blocking call on load (self-throttled to one hub fetch per 5 minutes), and `.github/workflows/sbs-links.yml` curls the deployed endpoint every 15 minutes between 08:00 and 20:00 UTC as a backstop (Vercel Hobby crons are daily-only, so GitHub Actions does the scheduling).
 
-The UI never depends on discovery succeeding: the live button falls back to the SBS World Cup collection page and the highlights button falls back to a prefilled SBS search, so both always work. See KNOWN_ISSUES.md for the current state of SBS scraping.
+The UI never depends on discovery succeeding: during the live window the button falls back to the SBS hub page, and finished matches show a prefilled SBS search link until the per-cut buttons activate. Match detail shows Highlights, Extended and Full Match buttons in that order; finished match cards get a compact highlights button. Clicking any SBS video link auto-marks the match watched.
 
 No SBS audio or video is embedded. SBS playback is DRM and account gated; we link out only.
 

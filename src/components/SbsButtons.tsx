@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 
 import { useUserState } from "@/hooks/useUserState";
 import { isInLiveWindow } from "@/lib/liveWindow";
-import type { Match } from "@/lib/types";
+import type { Match, SbsMatchLinks } from "@/lib/types";
 
 const SBS_COLLECTION =
-  "https://www.sbs.com.au/collection/sbs-sport-fifa-world-cup-2026";
+  "https://www.sbs.com.au/ondemand/fifa-world-cup-2026";
 
 function sbsSearchUrl(match: Match): string {
   const q = encodeURIComponent(
@@ -16,19 +16,20 @@ function sbsSearchUrl(match: Match): string {
   return `https://www.sbs.com.au/ondemand/search?query=${q}`;
 }
 
-// The buttons always work: live falls back to the SBS World Cup collection,
-// highlights falls back to a prefilled SBS search, until per-match URLs are
-// discovered (or pasted into the sbs_links table).
-export function SbsButtons({
-  match,
-  liveUrl,
-  highlightsUrl,
-}: {
-  match: Match;
-  liveUrl: string | null;
-  highlightsUrl: string | null;
-}) {
+const EMPTY: SbsMatchLinks = {
+  live: null,
+  highlights: null,
+  extended: null,
+  full: null,
+};
+
+// During the live window: one prominent live button (falls back to the SBS
+// World Cup hub so it always works). Post match: Highlights, Extended,
+// Full Match in that order, plus a search fallback until links land.
+export function SbsButtons({ match }: { match: Match }) {
   const { markWatched } = useUserState();
+  const links = match.sbs ?? EMPTY;
+
   // Re-evaluate the window every 30s so the button appears/disappears without
   // a reload while the page is open around kickoff.
   const [now, setNow] = useState(() => Date.now());
@@ -43,49 +44,74 @@ export function SbsButtons({
   if (inWindow) {
     return (
       <a
-        href={liveUrl ?? SBS_COLLECTION}
+        href={links.live ?? SBS_COLLECTION}
         target="_blank"
         rel="noopener noreferrer"
         className="block rounded-xl bg-accent px-4 py-3 text-center text-sm font-bold text-surface transition-opacity hover:opacity-90"
       >
         Watch live on SBS
-        {!liveUrl && (
+        {!links.live && (
           <span className="block text-xs font-normal opacity-75">
-            Opens the SBS World Cup page
+            Opens the SBS World Cup hub
           </span>
         )}
       </a>
     );
   }
 
-  if (finished) {
-    if (highlightsUrl) {
-      return (
+  if (!finished) return null;
+
+  const buttons = [
+    { label: "Highlights", note: "3 min", url: links.highlights },
+    { label: "Extended", note: "12 min", url: links.extended },
+    { label: "Full Match", note: "replay", url: links.full },
+  ];
+  const anyLink = buttons.some((b) => b.url);
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-3 gap-2">
+        {buttons.map((b) =>
+          b.url ? (
+            <a
+              key={b.label}
+              href={b.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => markWatched(match.id)}
+              className="rounded-xl bg-accent/15 px-2 py-3 text-center transition-colors hover:bg-accent/25"
+            >
+              <span className="block text-sm font-bold text-accent">
+                {b.label}
+              </span>
+              <span className="block text-xs text-accent/70">{b.note}</span>
+            </a>
+          ) : (
+            <div
+              key={b.label}
+              className="rounded-xl border border-edge px-2 py-3 text-center opacity-50"
+            >
+              <span className="block text-sm font-medium text-zinc-500">
+                {b.label}
+              </span>
+              <span className="block text-xs text-zinc-600">soon</span>
+            </div>
+          )
+        )}
+      </div>
+      {!anyLink && (
         <a
-          href={highlightsUrl}
+          href={sbsSearchUrl(match)}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={() => markWatched(match.id)}
-          className="block rounded-xl bg-accent/15 px-4 py-3 text-center text-sm font-bold text-accent transition-colors hover:bg-accent/25"
+          className="block rounded-xl border border-edge px-4 py-2.5 text-center text-sm font-medium text-zinc-300 transition-colors hover:border-accent/40 hover:text-accent"
         >
-          Highlights on SBS
+          Search SBS On Demand
+          <span className="block text-xs font-normal text-zinc-500">
+            Buttons activate once SBS publishes the videos
+          </span>
         </a>
-      );
-    }
-    return (
-      <a
-        href={sbsSearchUrl(match)}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block rounded-xl border border-edge px-4 py-3 text-center text-sm font-medium text-zinc-300 transition-colors hover:border-accent/40 hover:text-accent"
-      >
-        Search SBS highlights
-        <span className="block text-xs font-normal text-zinc-500">
-          Direct link appears here once SBS publishes it
-        </span>
-      </a>
-    );
-  }
-
-  return null;
+      )}
+    </div>
+  );
 }

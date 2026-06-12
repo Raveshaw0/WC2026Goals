@@ -1,4 +1,5 @@
 import { fetchAllMatches } from "@/lib/espn";
+import { withSbsLinks } from "@/lib/sbs";
 
 import { ScheduleClient } from "./ScheduleClient";
 
@@ -8,7 +9,7 @@ export default async function SchedulePage() {
   const result = await fetchAllMatches();
   return (
     <ScheduleClient
-      initialMatches={result.data ?? []}
+      initialMatches={await withSbsLinks(result.data ?? [])}
       initialStale={result.stale}
       initialLastUpdated={result.lastUpdated}
     />

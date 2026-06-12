@@ -38,6 +38,13 @@ export interface Goal {
   shootout: boolean;
 }
 
+export interface SbsMatchLinks {
+  live: string | null;
+  highlights: string | null;
+  extended: string | null;
+  full: string | null;
+}
+
 export interface Match {
   id: string;
   kickoff: string; // ISO UTC
@@ -52,6 +59,9 @@ export interface Match {
   venue: string | null;
   city: string | null;
   goals: Goal[];
+  // Merged in server-side from the sbs_links table; absent on /api/live
+  // payloads (the polling merge preserves the previous value).
+  sbs?: SbsMatchLinks;
 }
 
 export interface MatchesPayload {
@@ -89,6 +99,9 @@ export interface SbsLinkRow {
   match_end: string | null;
   sbs_live_url: string | null;
   sbs_highlights_url: string | null;
+  sbs_extended_url: string | null;
+  sbs_full_url: string | null;
+  sbs_mini_url: string | null;
   last_checked: string | null;
   attempts: number;
   attempts_live: number;

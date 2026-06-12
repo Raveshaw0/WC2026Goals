@@ -92,11 +92,12 @@ const ROUND_LABELS: Record<string, string> = {
 };
 
 export function MatchCard({ match }: { match: Match }) {
-  const { watched, favourites, toggleWatched, toggleFavourite } =
+  const { watched, favourites, toggleWatched, toggleFavourite, markWatched } =
     useUserState();
   const isWatched = watched.has(match.id);
   const isFavourite = favourites.has(match.id);
   const finished = match.status === "finished";
+  const highlightsUrl = finished ? match.sbs?.highlights ?? null : null;
 
   const contextLabel =
     match.group !== null
@@ -119,13 +120,31 @@ export function MatchCard({ match }: { match: Match }) {
           <span>{contextLabel}</span>
           <StatusPill match={match} />
         </div>
-        <div className="space-y-1.5 pr-14">
+        <div
+          className={
+            "space-y-1.5 " +
+            (highlightsUrl ? "pr-32" : finished ? "pr-20" : "pr-12")
+          }
+        >
           <TeamRow team={match.home} match={match} />
           <TeamRow team={match.away} match={match} />
         </div>
       </Link>
 
       <div className="absolute bottom-3 right-3 flex items-center gap-1">
+        {highlightsUrl && (
+          <a
+            href={highlightsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Watch highlights on SBS"
+            onClick={() => markWatched(match.id)}
+            className="flex items-center gap-1 rounded-full bg-accent/15 px-2.5 py-1.5 text-xs font-bold text-accent transition-colors hover:bg-accent/25"
+          >
+            <PlayIcon />
+            3m
+          </a>
+        )}
         {finished && (
           <button
             type="button"
@@ -180,6 +199,14 @@ export function StarIcon({ filled }: { filled: boolean }) {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
+
+export function PlayIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">
+      <polygon points="6 3 21 12 6 21" />
     </svg>
   );
 }

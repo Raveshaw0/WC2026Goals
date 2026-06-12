@@ -1,10 +1,10 @@
 # Known issues
 
-## SBS auto-detection is best-effort, fallbacks are the primary path
+## SBS link discovery uses an undocumented catalogue API
 
-Verified 2026-06-12: SBS On Demand search (`sbs.com.au/ondemand/search`) and the World Cup collection page are fully client-rendered SPAs. The server HTML contains no result titles, no watch links, no `__NEXT_DATA__` payload, and the legacy `api/v3` JSON endpoints now return the SPA shell. `/api/check-sbs` still runs its scrape attempts (HTML anchors, JSON-LD, embedded JSON heuristics) in case SBS ships server rendering or markup changes, but in practice per-match links are rarely discovered automatically.
+HTML scraping was abandoned 2026-06-12 (the SBS pages are fully client-rendered; see git history for the original attempt). `/api/check-sbs` now fetches `catalogue.pr.sbsod.com/pages/fifa-world-cup-2026`, the JSON document behind SBS's own World Cup hub page, using the public `x-api-key` baked into SBS's browser bundle. One fetch resolves live, highlights, extended highlights, full match and mini match links for every published match at once.
 
-Impact: low. The UI was built for this case per spec: the live button falls back to the SBS World Cup collection page and the highlights button falls back to a prefilled SBS search with both team names, so both buttons always work. If a working SBS JSON search endpoint is found later, drop it into `searchSbs()` in `src/app/api/check-sbs/route.ts` and everything downstream lights up.
+Risks: the API is undocumented, and the key or the hub slug could change. Mitigations: the UI never depends on discovery (live button falls back to the SBS hub page, finished matches get a prefilled search link until buttons activate), and stored links are never overwritten with nulls when a video drops off a rail. If it breaks, grab the new key from the page bundle (grep the chunk files for `x-api-key`).
 
 Manual override: you can paste a URL directly into the `sbs_links` row in Supabase and the UI will use it.
 

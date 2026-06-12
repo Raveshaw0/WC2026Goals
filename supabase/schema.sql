@@ -11,6 +11,10 @@ create table if not exists sbs_links (
   match_end timestamptz,
   sbs_live_url text,
   sbs_highlights_url text,
+  -- Per-cut links from the SBS World Cup hub rails (catalogue API)
+  sbs_extended_url text,
+  sbs_full_url text,
+  sbs_mini_url text,
   last_checked timestamptz,
   attempts int default 0,
   -- Per-type attempt caps (spec: stop after 20 attempts per match per link

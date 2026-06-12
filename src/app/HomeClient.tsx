@@ -5,6 +5,7 @@ import { useEffect, useMemo } from "react";
 
 import { MatchCard } from "@/components/MatchCard";
 import { StaleBanner } from "@/components/StaleBanner";
+import { StatsPanel } from "@/components/StatsPanel";
 import { useLiveMatches } from "@/hooks/useLiveMatches";
 import { melbourneDateHeading, melbourneDateKey, todayMelbourneKey } from "@/lib/time";
 import type { Match } from "@/lib/types";
@@ -55,6 +56,7 @@ export function HomeClient({
         stale={stale || initialStale}
         lastUpdated={lastUpdated ?? initialLastUpdated}
       />
+      <StatsPanel matches={matches} />
       <h1 className="mb-3 text-lg font-bold text-zinc-100">{heading}</h1>
       {today.length === 0 ? (
         <div className="rounded-2xl border border-edge bg-card px-4 py-8 text-center text-sm text-zinc-400">

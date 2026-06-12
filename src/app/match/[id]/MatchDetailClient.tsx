@@ -33,15 +33,7 @@ function TeamColumn({ team }: { team: TeamSide }) {
   );
 }
 
-export function MatchDetailClient({
-  initialMatch,
-  liveUrl,
-  highlightsUrl,
-}: {
-  initialMatch: Match;
-  liveUrl: string | null;
-  highlightsUrl: string | null;
-}) {
+export function MatchDetailClient({ initialMatch }: { initialMatch: Match }) {
   // Reuse the smart polling hook with a single match: it polls at 4s only
   // inside this match's live window, 5min otherwise, and pauses when hidden.
   const { matches } = useLiveMatches([initialMatch]);
@@ -126,7 +118,7 @@ export function MatchDetailClient({
         )}
       </div>
 
-      <SbsButtons match={match} liveUrl={liveUrl} highlightsUrl={highlightsUrl} />
+      <SbsButtons match={match} />
 
       <div className="flex gap-2">
         {finished && (

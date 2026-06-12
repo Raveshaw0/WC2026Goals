@@ -25,15 +25,19 @@ export default async function MatchPage({
 
   const match = all.data?.find((m) => m.id === id);
   if (!match) notFound();
+  if (sbs) {
+    match.sbs = {
+      live: sbs.sbs_live_url ?? null,
+      highlights: sbs.sbs_highlights_url ?? null,
+      extended: sbs.sbs_extended_url ?? null,
+      full: sbs.sbs_full_url ?? null,
+    };
+  }
 
   return (
     <div className="space-y-4">
       <StaleBanner stale={all.stale} lastUpdated={all.lastUpdated} />
-      <MatchDetailClient
-        initialMatch={match}
-        liveUrl={sbs?.sbs_live_url ?? null}
-        highlightsUrl={sbs?.sbs_highlights_url ?? null}
-      />
+      <MatchDetailClient initialMatch={match} />
       <section>
         <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-zinc-400">
           Lineups

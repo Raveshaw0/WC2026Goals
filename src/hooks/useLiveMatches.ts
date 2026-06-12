@@ -48,7 +48,14 @@ export function useLiveMatches(initialMatches: Match[]): LiveData {
             : [];
           if (!disposed && updates.length > 0) {
             const byId = new Map(updates.map((m) => [m.id, m] as const));
-            setMatches((prev) => prev.map((m) => byId.get(m.id) ?? m));
+            // /api/live payloads carry no SBS links; keep the ones merged in
+            // at page load.
+            setMatches((prev) =>
+              prev.map((m) => {
+                const u = byId.get(m.id);
+                return u ? { ...u, sbs: u.sbs ?? m.sbs } : m;
+              })
+            );
           }
           if (!disposed) {
             setStale(Boolean(data.stale));
