@@ -29,6 +29,9 @@ create table if not exists user_state (
   sync_code text primary key,
   watched jsonb default '[]',
   favourites jsonb default '[]',
+  -- ESPN team ids; their matches feed the Favourites view alongside
+  -- individually favourited matches
+  favourite_teams jsonb default '[]',
   updated_at timestamptz default now()
 );
 

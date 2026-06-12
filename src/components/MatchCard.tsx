@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 
+import { HighlightsModal } from "@/components/HighlightsModal";
 import { useUserState } from "@/hooks/useUserState";
 import { melbourneTime } from "@/lib/time";
 import type { Match, TeamSide } from "@/lib/types";
@@ -97,7 +99,9 @@ export function MatchCard({ match }: { match: Match }) {
   const isWatched = watched.has(match.id);
   const isFavourite = favourites.has(match.id);
   const finished = match.status === "finished";
-  const highlightsUrl = finished ? match.sbs?.highlights ?? null : null;
+  // The pill plays the YouTube highlights in a popup so people stay here.
+  const ytId = finished ? match.sbs?.ytHighlightsId ?? null : null;
+  const [playerOpen, setPlayerOpen] = useState(false);
 
   const contextLabel =
     match.group !== null
@@ -122,8 +126,7 @@ export function MatchCard({ match }: { match: Match }) {
         </div>
         <div
           className={
-            "space-y-1.5 " +
-            (highlightsUrl ? "pr-32" : finished ? "pr-20" : "pr-12")
+            "space-y-1.5 " + (ytId ? "pr-32" : finished ? "pr-20" : "pr-12")
           }
         >
           <TeamRow team={match.home} match={match} />
@@ -132,18 +135,19 @@ export function MatchCard({ match }: { match: Match }) {
       </Link>
 
       <div className="absolute bottom-3 right-3 flex items-center gap-1">
-        {highlightsUrl && (
-          <a
-            href={highlightsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Watch highlights on SBS"
-            onClick={() => markWatched(match.id)}
+        {ytId && (
+          <button
+            type="button"
+            aria-label="Play highlights"
+            onClick={() => {
+              setPlayerOpen(true);
+              markWatched(match.id);
+            }}
             className="flex items-center gap-1 rounded-full bg-accent/15 px-2.5 py-1.5 text-xs font-bold text-accent transition-colors hover:bg-accent/25"
           >
             <PlayIcon />
             3m
-          </a>
+          </button>
         )}
         {finished && (
           <button
@@ -181,6 +185,14 @@ export function MatchCard({ match }: { match: Match }) {
             <TickIcon /> Watched
           </span>
         </span>
+      )}
+
+      {playerOpen && ytId && (
+        <HighlightsModal
+          videoId={ytId}
+          title={`${match.home.name} v ${match.away.name} highlights`}
+          onClose={() => setPlayerOpen(false)}
+        />
       )}
     </div>
   );

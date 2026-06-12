@@ -98,13 +98,15 @@ export async function insertUserState(code: string): Promise<boolean> {
 export async function updateUserState(
   code: string,
   watched: string[],
-  favourites: string[]
+  favourites: string[],
+  favouriteTeams: string[]
 ): Promise<boolean> {
   const res = await rest(`/user_state?sync_code=eq.${encodeURIComponent(code)}`, {
     method: "PATCH",
     body: JSON.stringify({
       watched,
       favourites,
+      favourite_teams: favouriteTeams,
       updated_at: new Date().toISOString(),
     }),
     prefer: "return=minimal",

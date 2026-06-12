@@ -4,11 +4,13 @@ Personal FIFA World Cup 2026 tracker. Next.js 14 App Router, TypeScript, Tailwin
 
 ## What it does
 
-- Today's matches with live scores, polled smartly (4s during live windows, 5min otherwise, paused when tab hidden)
-- Full 104-match schedule grouped by date, all times Australia/Melbourne
-- Match detail with lineups, goal scorers, SBS live and highlights links
-- Watched tracking and favourites, synced across devices with a sync code (e.g. TIGER-42)
+- One landing page: the full 104-match schedule grouped by date (all times Australia/Melbourne), centered on today, stats panel up top, live scores polled smartly (4s during live windows, 5min otherwise, paused when tab hidden)
+- Header tabs filter the schedule: Schedule (all), Australia, Favourites (favourited matches plus all matches of followed teams)
+- Match detail with lineups, goal scorers, embedded YouTube highlights, SBS live and per-cut links, follow-team buttons
+- Card-level highlights popup: finished matches play the YouTube highlights in an in-app modal and auto-mark watched
+- Watched tracking, match favourites and team follows, synced across devices with a sync code (e.g. TIGER-42)
 - Stats: matches watched, goals seen (excluding shootout kicks) as count and percentage of all tournament goals
+- "Something is broken" report button that emails the owner via Resend
 
 ## Architecture
 

@@ -33,6 +33,7 @@ function sanitizeCode(raw: unknown): string | null {
   return SYNC_CODE_RE.test(code) ? code : null;
 }
 
+// Match ids and team ids are both numeric ESPN ids.
 function sanitizeIds(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   return raw
@@ -44,6 +45,15 @@ function sanitizeIds(raw: unknown): string[] {
 
 function union(a: string[], b: string[]): string[] {
   return Array.from(new Set([...a, ...b]));
+}
+
+function payload(
+  code: string,
+  watched: string[],
+  favourites: string[],
+  favouriteTeams: string[]
+) {
+  return { code, watched, favourites, favouriteTeams };
 }
 
 export async function GET(req: NextRequest) {
@@ -61,17 +71,21 @@ export async function GET(req: NextRequest) {
   if (!row) {
     return NextResponse.json({ error: "unknown code" }, { status: 404 });
   }
-  return NextResponse.json({
-    code: row.sync_code,
-    watched: row.watched ?? [],
-    favourites: row.favourites ?? [],
-  });
+  return NextResponse.json(
+    payload(
+      row.sync_code,
+      row.watched ?? [],
+      row.favourites ?? [],
+      row.favourite_teams ?? []
+    )
+  );
 }
 
 // POST actions:
-//   { action: "new" }                          -> create a fresh code
-//   { action: "adopt", code, watched, favourites } -> merge local into code
-//   { action: "sync", code, watched, favourites, removedWatched?, removedFavourites? }
+//   { action: "new" }
+//   { action: "adopt", code, watched, favourites, favouriteTeams }
+//   { action: "sync", code, watched, favourites, favouriteTeams,
+//     removedWatched?, removedFavourites?, removedFavouriteTeams? }
 // Merging is union; explicit untoggles arrive as removed* lists so
 // reconciliation never silently deletes anything.
 export async function POST(req: NextRequest) {
@@ -96,7 +110,7 @@ export async function POST(req: NextRequest) {
       if (existing) continue; // collision, retry
       const ok = await insertUserState(code);
       if (ok) {
-        return NextResponse.json({ code, watched: [], favourites: [] });
+        return NextResponse.json(payload(code, [], [], []));
       }
     }
     return NextResponse.json({ error: "could not create code" }, { status: 500 });
@@ -108,6 +122,7 @@ export async function POST(req: NextRequest) {
   }
   const watched = sanitizeIds(body?.watched);
   const favourites = sanitizeIds(body?.favourites);
+  const favouriteTeams = sanitizeIds(body?.favouriteTeams);
 
   if (action === "adopt") {
     const row = await getUserState(code);
@@ -116,12 +131,11 @@ export async function POST(req: NextRequest) {
     }
     const mergedWatched = union(row.watched ?? [], watched);
     const mergedFavourites = union(row.favourites ?? [], favourites);
-    await updateUserState(code, mergedWatched, mergedFavourites);
-    return NextResponse.json({
-      code,
-      watched: mergedWatched,
-      favourites: mergedFavourites,
-    });
+    const mergedTeams = union(row.favourite_teams ?? [], favouriteTeams);
+    await updateUserState(code, mergedWatched, mergedFavourites, mergedTeams);
+    return NextResponse.json(
+      payload(code, mergedWatched, mergedFavourites, mergedTeams)
+    );
   }
 
   if (action === "sync") {
@@ -131,18 +145,20 @@ export async function POST(req: NextRequest) {
     }
     const removedWatched = new Set(sanitizeIds(body?.removedWatched));
     const removedFavourites = new Set(sanitizeIds(body?.removedFavourites));
+    const removedTeams = new Set(sanitizeIds(body?.removedFavouriteTeams));
     const mergedWatched = union(row.watched ?? [], watched).filter(
       (id) => !removedWatched.has(id)
     );
     const mergedFavourites = union(row.favourites ?? [], favourites).filter(
       (id) => !removedFavourites.has(id)
     );
-    await updateUserState(code, mergedWatched, mergedFavourites);
-    return NextResponse.json({
-      code,
-      watched: mergedWatched,
-      favourites: mergedFavourites,
-    });
+    const mergedTeams = union(row.favourite_teams ?? [], favouriteTeams).filter(
+      (id) => !removedTeams.has(id)
+    );
+    await updateUserState(code, mergedWatched, mergedFavourites, mergedTeams);
+    return NextResponse.json(
+      payload(code, mergedWatched, mergedFavourites, mergedTeams)
+    );
   }
 
   return NextResponse.json({ error: "unknown action" }, { status: 400 });

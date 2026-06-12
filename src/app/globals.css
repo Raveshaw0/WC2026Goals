@@ -8,6 +8,7 @@
 
 body {
   @apply bg-surface text-zinc-200 antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
 @keyframes livePulse {

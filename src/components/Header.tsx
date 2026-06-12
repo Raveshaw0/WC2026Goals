@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
 import { ReportButton } from "./ReportButton";
 import { SettingsPanel } from "./SettingsPanel";
 
-export function Header() {
+function NavTabs() {
   const pathname = usePathname();
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const searchParams = useSearchParams();
+  const filter = pathname === "/" ? searchParams.get("filter") ?? "all" : null;
 
   const tab = (href: string, label: string, active: boolean) => (
     <Link
@@ -26,14 +27,29 @@ export function Header() {
   );
 
   return (
+    <>
+      {tab("/", "Schedule", filter === "all")}
+      {tab("/?filter=australia", "Australia", filter === "australia")}
+      {tab("/?filter=favourites", "Favourites", filter === "favourites")}
+    </>
+  );
+}
+
+export function Header() {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  return (
     <header className="sticky top-0 z-20 border-b border-edge bg-surface/95 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 py-3">
-        <Link href="/" className="mr-auto text-base font-bold tracking-tight">
+      <div className="mx-auto flex w-full max-w-3xl items-center gap-1 px-4 py-3">
+        <Link
+          href="/"
+          className="mr-auto text-base font-bold tracking-tight"
+        >
           <span className="text-accent">WC26</span>
-          <span className="text-zinc-400"> Tracker</span>
         </Link>
-        {tab("/", "Today", pathname === "/")}
-        {tab("/schedule", "Schedule", pathname === "/schedule")}
+        <Suspense fallback={null}>
+          <NavTabs />
+        </Suspense>
         <ReportButton />
         <button
           type="button"

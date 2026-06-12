@@ -114,5 +114,6 @@ export interface UserStateRow {
   sync_code: string;
   watched: string[];
   favourites: string[];
+  favourite_teams: string[];
   updated_at: string;
 }

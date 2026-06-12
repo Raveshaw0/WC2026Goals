@@ -1,17 +1,6 @@
-import { fetchAllMatches } from "@/lib/espn";
-import { withSbsLinks } from "@/lib/sbs";
+import { redirect } from "next/navigation";
 
-import { ScheduleClient } from "./ScheduleClient";
-
-export const dynamic = "force-dynamic";
-
-export default async function SchedulePage() {
-  const result = await fetchAllMatches();
-  return (
-    <ScheduleClient
-      initialMatches={await withSbsLinks(result.data ?? [])}
-      initialStale={result.stale}
-      initialLastUpdated={result.lastUpdated}
-    />
-  );
+// The schedule and home pages merged; / is the schedule now.
+export default function SchedulePage() {
+  redirect("/");
 }

@@ -18,37 +18,43 @@ interface StoredState {
   code: string | null;
   watched: string[];
   favourites: string[];
+  favouriteTeams: string[];
   // Explicit untoggles queued for the next sync. Server-side merging is
   // union-based, so deletions must travel as explicit removal lists or they
   // would resurrect on the next reconciliation.
   removedWatched: string[];
   removedFavourites: string[];
+  removedFavouriteTeams: string[];
 }
 
 const EMPTY: StoredState = {
   code: null,
   watched: [],
   favourites: [],
+  favouriteTeams: [],
   removedWatched: [],
   removedFavourites: [],
+  removedFavouriteTeams: [],
 };
+
+function arr(x: unknown): string[] {
+  return Array.isArray(x) ? x.filter((v): v is string => typeof v === "string") : [];
+}
 
 function readLocal(): StoredState {
   if (typeof window === "undefined") return EMPTY;
   try {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return EMPTY;
-    const parsed = JSON.parse(raw);
+    const p = JSON.parse(raw);
     return {
-      code: typeof parsed.code === "string" ? parsed.code : null,
-      watched: Array.isArray(parsed.watched) ? parsed.watched : [],
-      favourites: Array.isArray(parsed.favourites) ? parsed.favourites : [],
-      removedWatched: Array.isArray(parsed.removedWatched)
-        ? parsed.removedWatched
-        : [],
-      removedFavourites: Array.isArray(parsed.removedFavourites)
-        ? parsed.removedFavourites
-        : [],
+      code: typeof p.code === "string" ? p.code : null,
+      watched: arr(p.watched),
+      favourites: arr(p.favourites),
+      favouriteTeams: arr(p.favouriteTeams),
+      removedWatched: arr(p.removedWatched),
+      removedFavourites: arr(p.removedFavourites),
+      removedFavouriteTeams: arr(p.removedFavouriteTeams),
     };
   } catch {
     return EMPTY;
@@ -63,14 +69,20 @@ function writeLocal(state: StoredState) {
   }
 }
 
+function union(a: string[], b: string[]): string[] {
+  return Array.from(new Set([...a, ...b]));
+}
+
 interface UserStateApi {
   code: string | null;
   watched: Set<string>;
   favourites: Set<string>;
+  favouriteTeams: Set<string>;
   syncing: boolean;
   syncError: string | null;
   toggleWatched: (id: string) => void;
   toggleFavourite: (id: string) => void;
+  toggleFavouriteTeam: (id: string) => void;
   markWatched: (id: string) => void;
   adoptCode: (code: string) => Promise<string | null>; // returns error message or null
 }
@@ -84,18 +96,33 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
   const stateRef = useRef(state);
   stateRef.current = state;
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inFlight = useRef(false);
 
   const update = useCallback((next: StoredState) => {
     setState(next);
     writeLocal(next);
   }, []);
 
-  // Push local state to the server, applying queued removals, then adopt the
-  // merged result. Tolerates failure: local state is the source of truth for
-  // this device until the network comes back.
+  // Push local state to the server, applying queued removals, then MERGE the
+  // server's response with whatever the local state is by the time it
+  // arrives. Never blindly replace local state with a response: a toggle made
+  // while a sync was in flight would visually revert for a moment (the
+  // flicker), then reappear on the next sync.
   const pushSync = useCallback(async () => {
     const s = stateRef.current;
     if (!s.code) return;
+    if (inFlight.current) {
+      // A sync is already running; run again once it finishes.
+      if (syncTimer.current) clearTimeout(syncTimer.current);
+      syncTimer.current = setTimeout(() => void pushSync(), 900);
+      return;
+    }
+    inFlight.current = true;
+    const sent = {
+      removedWatched: s.removedWatched,
+      removedFavourites: s.removedFavourites,
+      removedFavouriteTeams: s.removedFavouriteTeams,
+    };
     setSyncing(true);
     try {
       const res = await fetch("/api/state", {
@@ -106,18 +133,41 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
           code: s.code,
           watched: s.watched,
           favourites: s.favourites,
-          removedWatched: s.removedWatched,
-          removedFavourites: s.removedFavourites,
+          favouriteTeams: s.favouriteTeams,
+          removedWatched: sent.removedWatched,
+          removedFavourites: sent.removedFavourites,
+          removedFavouriteTeams: sent.removedFavouriteTeams,
         }),
       });
       if (res.ok) {
         const data = await res.json();
+        const cur = stateRef.current;
+        // Removals queued during the flight are still pending; the ones we
+        // sent are applied server-side and can be cleared.
+        const pendingRemovedW = cur.removedWatched.filter(
+          (x) => !sent.removedWatched.includes(x)
+        );
+        const pendingRemovedF = cur.removedFavourites.filter(
+          (x) => !sent.removedFavourites.includes(x)
+        );
+        const pendingRemovedT = cur.removedFavouriteTeams.filter(
+          (x) => !sent.removedFavouriteTeams.includes(x)
+        );
         update({
-          code: s.code,
-          watched: data.watched ?? s.watched,
-          favourites: data.favourites ?? s.favourites,
-          removedWatched: [],
-          removedFavourites: [],
+          code: cur.code,
+          watched: union(arr(data.watched), cur.watched).filter(
+            (id) => !cur.removedWatched.includes(id)
+          ),
+          favourites: union(arr(data.favourites), cur.favourites).filter(
+            (id) => !cur.removedFavourites.includes(id)
+          ),
+          favouriteTeams: union(
+            arr(data.favouriteTeams),
+            cur.favouriteTeams
+          ).filter((id) => !cur.removedFavouriteTeams.includes(id)),
+          removedWatched: pendingRemovedW,
+          removedFavourites: pendingRemovedF,
+          removedFavouriteTeams: pendingRemovedT,
         });
         setSyncError(null);
       } else if (res.status === 503) {
@@ -126,6 +176,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
     } catch {
       setSyncError("Offline, will retry");
     } finally {
+      inFlight.current = false;
       setSyncing(false);
     }
   }, [update]);
@@ -150,19 +201,22 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
           );
           if (cancelled) return;
           if (res.ok) {
-            // Reconcile: union server into local, then push local additions
-            // and queued removals back up.
             const data = await res.json();
             const merged: StoredState = {
               code: local.code,
-              watched: Array.from(
-                new Set([...local.watched, ...(data.watched ?? [])])
-              ).filter((id) => !local.removedWatched.includes(id)),
-              favourites: Array.from(
-                new Set([...local.favourites, ...(data.favourites ?? [])])
-              ).filter((id) => !local.removedFavourites.includes(id)),
+              watched: union(local.watched, arr(data.watched)).filter(
+                (id) => !local.removedWatched.includes(id)
+              ),
+              favourites: union(local.favourites, arr(data.favourites)).filter(
+                (id) => !local.removedFavourites.includes(id)
+              ),
+              favouriteTeams: union(
+                local.favouriteTeams,
+                arr(data.favouriteTeams)
+              ).filter((id) => !local.removedFavouriteTeams.includes(id)),
               removedWatched: local.removedWatched,
               removedFavourites: local.removedFavourites,
+              removedFavouriteTeams: local.removedFavouriteTeams,
             };
             update(merged);
             scheduleSync();
@@ -184,7 +238,13 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
         const data = await res.json();
         const next: StoredState = { ...readLocal(), code: data.code };
         update(next);
-        if (next.watched.length || next.favourites.length) scheduleSync();
+        if (
+          next.watched.length ||
+          next.favourites.length ||
+          next.favouriteTeams.length
+        ) {
+          scheduleSync();
+        }
       } catch {
         // sync unavailable; app still works device-locally
       }
@@ -196,21 +256,37 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const toggleWatched = useCallback(
-    (id: string) => {
-      const s = stateRef.current;
-      const has = s.watched.includes(id);
-      update({
-        ...s,
-        watched: has ? s.watched.filter((x) => x !== id) : [...s.watched, id],
-        removedWatched: has
-          ? [...s.removedWatched.filter((x) => x !== id), id]
-          : s.removedWatched.filter((x) => x !== id),
-      });
-      scheduleSync();
+  // Generic toggle across the three id lists.
+  const makeToggle = useCallback(
+    (listKey: "watched" | "favourites" | "favouriteTeams") => {
+      const removedKey = (
+        {
+          watched: "removedWatched",
+          favourites: "removedFavourites",
+          favouriteTeams: "removedFavouriteTeams",
+        } as const
+      )[listKey];
+      return (id: string) => {
+        const s = stateRef.current;
+        const has = s[listKey].includes(id);
+        update({
+          ...s,
+          [listKey]: has
+            ? s[listKey].filter((x) => x !== id)
+            : [...s[listKey], id],
+          [removedKey]: has
+            ? [...s[removedKey].filter((x) => x !== id), id]
+            : s[removedKey].filter((x) => x !== id),
+        });
+        scheduleSync();
+      };
     },
     [update, scheduleSync]
   );
+
+  const toggleWatched = makeToggle("watched");
+  const toggleFavourite = makeToggle("favourites");
+  const toggleFavouriteTeam = makeToggle("favouriteTeams");
 
   const markWatched = useCallback(
     (id: string) => {
@@ -220,24 +296,6 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
         ...s,
         watched: [...s.watched, id],
         removedWatched: s.removedWatched.filter((x) => x !== id),
-      });
-      scheduleSync();
-    },
-    [update, scheduleSync]
-  );
-
-  const toggleFavourite = useCallback(
-    (id: string) => {
-      const s = stateRef.current;
-      const has = s.favourites.includes(id);
-      update({
-        ...s,
-        favourites: has
-          ? s.favourites.filter((x) => x !== id)
-          : [...s.favourites, id],
-        removedFavourites: has
-          ? [...s.removedFavourites.filter((x) => x !== id), id]
-          : s.removedFavourites.filter((x) => x !== id),
       });
       scheduleSync();
     },
@@ -260,6 +318,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
             code,
             watched: s.watched,
             favourites: s.favourites,
+            favouriteTeams: s.favouriteTeams,
           }),
         });
         if (res.status === 404) return "Code not found";
@@ -267,10 +326,12 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
         const data = await res.json();
         update({
           code,
-          watched: data.watched ?? [],
-          favourites: data.favourites ?? [],
+          watched: arr(data.watched),
+          favourites: arr(data.favourites),
+          favouriteTeams: arr(data.favouriteTeams),
           removedWatched: [],
           removedFavourites: [],
+          removedFavouriteTeams: [],
         });
         return null;
       } catch {
@@ -284,10 +345,12 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
     code: state.code,
     watched: new Set(state.watched),
     favourites: new Set(state.favourites),
+    favouriteTeams: new Set(state.favouriteTeams),
     syncing,
     syncError,
     toggleWatched,
     toggleFavourite,
+    toggleFavouriteTeam,
     markWatched,
     adoptCode,
   };

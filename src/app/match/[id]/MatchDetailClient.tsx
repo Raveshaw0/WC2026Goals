@@ -25,10 +25,33 @@ function goalLabel(g: Goal): string {
 }
 
 function TeamColumn({ team }: { team: TeamSide }) {
+  const { favouriteTeams, toggleFavouriteTeam } = useUserState();
+  // Knockout placeholders ("Group A Winner", "Semifinal 1 Loser") are not
+  // real teams yet
+  const isRealTeam =
+    /^[0-9]+$/.test(team.id) &&
+    !/Winner|Loser|Place/.test(team.name);
+  const isFav = favouriteTeams.has(team.id);
   return (
     <div className="flex flex-1 flex-col items-center gap-2 text-center">
       <Flag team={team} size={48} />
       <span className="text-sm font-semibold text-zinc-100">{team.name}</span>
+      {isRealTeam && (
+        <button
+          type="button"
+          aria-pressed={isFav}
+          onClick={() => toggleFavouriteTeam(team.id)}
+          className={
+            "flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium transition-colors " +
+            (isFav
+              ? "bg-amber-400/10 text-amber-400"
+              : "text-zinc-500 hover:text-zinc-300")
+          }
+        >
+          <StarIcon filled={isFav} />
+          {isFav ? "Following" : "Follow team"}
+        </button>
+      )}
     </div>
   );
 }
