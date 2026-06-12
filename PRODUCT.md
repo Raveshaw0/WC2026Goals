@@ -1,105 +1,59 @@
-# wc26-tracker
+# Product
 
-Personal FIFA World Cup 2026 tracker. Next.js 14 App Router, TypeScript, Tailwind, Supabase. Deployed on Vercel at wc2026.alextestingstuff.com. No login: cross-device sync via a readable sync code.
+What WC26 Tracker does, page by page. For how it works underneath, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
-## What it does
+## Navigation
 
-- One landing page: the full 104-match schedule grouped by date (all times Australia/Melbourne), centered on today, stats panel up top, live scores polled smartly (4s during live windows, 5min otherwise, paused when tab hidden)
-- Header tabs: Schedule (all), Groups (all 12 group tables, 5 min refresh), Australia, Favourites (favourited matches plus all matches of followed teams), Stats (top scorers, assists, discipline, 15 min refresh)
-- Match detail with a LiveScore-style events timeline (goals with assists, cards, subs, running score), match stat bars (possession, shots, corners and more from ESPN's boxscore), lineups, embedded YouTube highlights, SBS live and per-cut links, follow-team buttons; events, stats and lineups poll every 60s from 75 minutes before kickoff until the live window closes
-- Tournament leaders are computed from match data (no ESPN leaders endpoint exists for this league): scorers and cards from the scoreboard goal details, assists from the per-match summary participant pairs, which match ESPN's own published stats
-- Card-level highlights popup: finished matches play the YouTube highlights in an in-app modal and auto-mark watched
-- Watched tracking, match favourites and team follows, synced across devices with a sync code (e.g. TIGER-42)
-- Stats: matches watched, goals seen (excluding shootout kicks) as count and percentage of all tournament goals
-- "Something is broken" report button that emails the owner via Resend
+Header tabs: **Schedule, Groups, Stats, Australia, Favourites**, plus a red flag report button and a settings gear. The nav row scrolls horizontally on narrow screens.
 
-## Architecture
+## Schedule (landing page)
 
-### Data source
+- Full 104-match schedule grouped by Melbourne calendar date, kickoff order
+- Loads with the **Your stats** panel up top (always expanded) and today's matches immediately below; days that have passed collapse behind a "Show earlier days" toggle
+- **Match cards** show group letter or knockout round, flags, score or kickoff time with a live countdown ("5:00 am (kickoff in 1d 4h 23m)", updates every minute), and live status with the elapsed minute
+- Live matches poll every 4 seconds; outside live windows the page refreshes every 5 minutes; polling stops entirely when the tab is hidden
+- Finished matches gain a **3m highlights pill** that plays SBS's YouTube highlights in an in-app popup (and auto-marks the match watched), an eye toggle (watched) and a star toggle (favourite)
+- Watched matches dim their content, keep a bright "Watched" badge, and get a mint outline
+- **Australia** tab: the Socceroos' matches only
+- **Favourites** tab: starred matches plus every match of followed teams
 
-ESPN's unofficial public JSON API, proxied through our own route handlers. The browser never calls ESPN directly. All ESPN schema knowledge lives in `src/lib/espn.ts`; the rest of the app only sees internal types from `src/lib/types.ts`, so the source can be swapped later.
+## Your stats panel
 
-Endpoints used (verified working 2026-06-12):
+- Matches watched out of finished, with progress bar
+- Goals seen: regular and extra time goals in watched matches (shootout kicks excluded), as a count and an animated percentage of all goals scored in the tournament so far
+- Favourites count
+- Matches missing ESPN data are excluded from goal maths rather than guessed
 
-- Scoreboard: `site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=YYYYMMDD` (also accepts `YYYYMMDD-YYYYMMDD` ranges; the whole tournament fits in one call with `limit=200`)
-- Summary (lineups, events): `.../fifa.world/summary?event=EVENT_ID`
-- Standings: `.../fifa.world/standings` (used once to map teams to groups A-L; not in original spec but required because the scoreboard payload does not carry group letters)
+## Groups
 
-Goal data comes from the scoreboard `details` array (per-event goal records with penalty, own goal and shootout flags), so the stats maths needs no extra requests.
+All 12 group tables (A to L): rank, flag, played, won, drawn, lost, goal difference, points. Refreshes every 5 minutes.
 
-### Routes
+## Stats
 
-| Route | Purpose | Caching |
-|---|---|---|
-| `GET /api/matches` | All 104 matches + group map | fetch revalidate 300s |
-| `GET /api/live` | Matches in a rolling 3-day UTC window, for polling | fetch revalidate 4s |
-| `GET /api/match/[id]` | Mapped summary (events, stats, lineups) for live detail polling | fetch revalidate 30s live, 86400s finished |
-| `GET/POST /api/check-sbs` | SBS link discovery (live + highlights) | self-throttled, DB `last_checked` gated |
-| `GET/POST /api/state` | Sync state read, create, adopt, merge-update | no store, rate limited 30/min/IP |
+Tournament leaders in three sub-tabs: **Top scorers**, **Assists**, **Discipline** (yellow and red card counts). ESPN-style shared ranks for ties. Refreshes every 15 minutes. Computed from match data; own goals and shootout kicks never count, penalty goals carry no assist.
 
-Server-side fetch caching means N clients polling every 4 seconds still produce at most one upstream ESPN call per 4 seconds.
+## Match page
 
-### Live windows
+Score header (teams, flags, score, status or Melbourne kickoff, venue, shootout score when applicable) with **Follow team** buttons under each side, then watched/favourite actions, then four pill sub-tabs:
 
-A match is in its live window from kickoff minus 5 minutes to kickoff plus 150 minutes (180 for knockout rounds, to cover extra time and penalties). Windows are derived from the schedule. The client polls `/api/live` every 4 seconds only while at least one window is open, otherwise every 5 minutes, and stops entirely when the tab is hidden (visibilitychange).
+1. **Stats** (landing tab): the highlights embed sits on top once available, match stat bars below: possession, shots, shots on target, corners, fouls, offsides, cards, saves, crosses, pass completion, with the leading side highlighted
+2. **Events**: LiveScore-style timeline: goals with scorer, assister and running score, yellow/red cards, substitutions (on/off), HT and FT rows
+3. **Lineups**: starting XI with shirt numbers, positions and formation, bench below, sub on/off markers; "Lineups TBC, usually ~1hr before kickoff" until published
+4. **Watch**: highlights embed on top, then **SBS links (requires SBS login)**: Highlights (3 min), Extended (12 min), Full Match buttons in that order, dimmed "soon" placeholders until each link lands, plus a prefilled SBS search fallback when none have. During the live window the tab shows a single prominent **Watch live on SBS** button that always works (falls back to the SBS World Cup hub until the per-match stream link is found)
 
-### SBS links
+Live behaviour: score updates every 4 seconds; events, stats and lineups poll every 60 seconds from 75 minutes before kickoff (so lineups appear as ESPN publishes them) until the live window closes (kickoff +150 minutes, +180 for knockouts). Clicking any SBS video link or playing embedded highlights auto-marks the match watched.
 
-SBS On Demand holds the Australian rights. `/api/check-sbs` fetches the JSON document behind SBS's own World Cup hub page (`catalogue.pr.sbsod.com/pages/fifa-world-cup-2026`, public x-api-key from their browser bundle) and reads five named rails: Live & Upcoming, Highlights, Extended Highlights, Full Matches, Mini Matches. One fetch resolves every published match at once; no scraping.
+## Sync (no login)
 
-- Rail titles ("Korea Republic v Czechia: Group A") are matched to ESPN fixtures via the alias map in `src/lib/aliases.ts` (Korea Republic vs South Korea, Bosnia and Herzegovina vs Bosnia-Herzegovina, Turkiye vs Turkey, etc.)
-- Watch URLs are `sbs.com.au/ondemand/watch/{mpxMediaID}`
-- Stored links are never overwritten with nulls when a video ages off a rail
+- First visit mints a readable sync code (e.g. TIGER-42), shown in Settings
+- Entering the code on another device merges that device's state in (union, nothing lost) and links them
+- Watched, favourites and followed teams all sync; localStorage carries instant render and offline tolerance
+- State survives redeploys; explicit untoggles propagate without resurrecting on merge
 
-Triggering: the home page fires a non-blocking call on load (self-throttled to one hub fetch per 5 minutes), and `.github/workflows/sbs-links.yml` curls the deployed endpoint every 15 minutes between 08:00 and 20:00 UTC as a backstop (Vercel Hobby crons are daily-only, so GitHub Actions does the scheduling).
+## Reporting
 
-The UI never depends on discovery succeeding: during the live window the button falls back to the SBS hub page, and finished matches show a prefilled SBS search link until the per-cut buttons activate. Match detail shows Highlights, Extended and Full Match buttons in that order under an "SBS links" heading; finished match cards get a compact highlights button. Clicking any SBS video link auto-marks the match watched.
+The red flag button opens "Something is broken?", which emails the report (with the page path) via Resend. Rate limited.
 
-### YouTube highlights embed
+## Design
 
-SBS Sport mirrors the short highlights cut to YouTube (@SBSSportau), which can be embedded (SBS On Demand itself is DRM gated, links only). The same check-sbs run parses the channel's Videos page (`ytInitialData`), matches titles on both team names plus "highlights" (knockout-proof: no dependence on title structure), and stores the video id. Finished matches embed the player above the SBS links on the detail page via youtube-nocookie.com.
-
-### Issue reporting
-
-A red flag button in the header opens a "Something is broken" box; reports POST to `/api/report` and are emailed to alexanderlukic84@gmail.com via a dedicated Resend account (requires `RESEND_API_KEY`; optional REPORT_TO_EMAIL / REPORT_FROM_EMAIL overrides). Rate limited 5/min/IP.
-
-No SBS audio or video is embedded. SBS playback is DRM and account gated; we link out only.
-
-### Sync state (no login)
-
-Supabase `user_state` table keyed by sync code (readable word + two digits, generated server-side with collision check). localStorage caches the state for instant render and offline tolerance; every change is mirrored to Supabase through `/api/state`. Merging is union-based and never deletes entries except explicit untoggles, which the client sends as explicit removal lists. Entering a code on a second device merges that device's arrays into the row (union, no data loss) and then adopts the code. The localStorage key is constant (`wc26.state.v1`), never namespaced by build, so state survives redeploys.
-
-### Resilience
-
-`src/lib/espn.ts` keeps the last good response per endpoint in module scope. On upstream error or unexpected shape, the API serves the last good data with `stale: true` and `lastUpdated`, and the UI shows a small stale banner. Pages never crash on upstream failure. Logging is console only.
-
-### Database
-
-Two tables, SQL in `supabase/schema.sql` (run it in the Supabase SQL editor). Supabase is accessed server-side only, via PostgREST REST calls with the service role key. No Supabase client library is shipped to the browser; no extra runtime dependencies at all beyond Next and React.
-
-### Design
-
-Dark theme, system font stack, mobile-first with desktop grid layouts. Only images are team flags from ESPN's CDN. No analytics, no cookies.
-
-## Environment
-
-`.env.local` (and Vercel project env):
-
-```
-SUPABASE_URL=https://YOUR-PROJECT-REF.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=YOUR-SERVICE-ROLE-KEY
-RESEND_API_KEY=YOUR-RESEND-KEY   # optional, powers the issue report button
-```
-
-Both are server-side only and never exposed to the client. The app runs without them (matches work, sync and SBS link storage degrade gracefully), but set both for full functionality.
-
-## Repo layout
-
-```
-src/app/                pages and route handlers
-src/components/         match cards, panels, toggles, lineups
-src/hooks/              polling and user state hooks
-src/lib/                ESPN adapter, types, db, time, aliases, windows, words
-supabase/schema.sql     run in Supabase SQL editor
-.github/workflows/      SBS link discovery backstop
-```
+Dark theme, mint accent, system font stack, mobile-first with desktop grids. Only images are team flags from ESPN's CDN and YouTube thumbnails inside embeds. No analytics, no cookies, no cookie banner needed.

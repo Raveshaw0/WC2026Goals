@@ -1,0 +1,39 @@
+# Changelog
+
+The whole product was built on June 12-13, 2026 (day two of the tournament), in one extended session. Commit by commit:
+
+## a1f6616 - The tracker
+
+Full v1: Next.js 14 scaffold, ESPN adapter (scoreboard, summary, standings for group letters), home page with today's matches in Melbourne time, full schedule with All/Australia/Favourites filters, match pages with lineups, smart polling (4s in live windows, 5min idle, paused when hidden), Supabase tables, SBS link scraping with alias map, sync codes with union merging, watched/favourite toggles, stats panel with goals-seen maths, stale-data resilience. Deployed to Vercel with the wc2026 subdomain the same night.
+
+## e50036d - SBS catalogue API
+
+HTML scraping replaced after discovering the JSON API behind SBS's World Cup hub page (public x-api-key in their bundle). One fetch resolves live, highlights, extended highlights, full match and mini match links for every published match; live links appear days early. Match pages gained the three-button SBS row; finished cards gained a highlights button; stats panel added to the home page.
+
+## 7bd9d10 - YouTube embeds and issue reports
+
+SBS Sport mirrors short highlights to YouTube, which is embeddable (SBS On Demand is DRM gated). Discovery parses the channel's ytInitialData; matching is both-team-names plus "highlights", validated against SBS's own teams collection (all 42 teams resolve through the alias map). Highlights embed on match pages. Red flag report button emails issues via Resend.
+
+## 696dec8 - Report wiring
+
+Reports route to a dedicated Resend account; SBS links heading notes the login requirement.
+
+## 795b209 - The big UX round
+
+Card highlight pills open an in-app YouTube modal instead of linking out. Follow-team buttons on match pages; followed teams' games feed the Favourites view (new favourite_teams column). Home and schedule merged into one landing page; header tabs became Schedule/Australia/Favourites. The toggle flicker diagnosed and fixed (in-flight sync responses now merge with current local state instead of replacing it). Mobile sticky-hover killed via hoverOnlyWhenSupported.
+
+## b1eb4ba - Polish round
+
+Modal portaled to document.body (dimmed cards created a stacking context that trapped it behind later cards). Watched cards keep a bright badge and mint ring, dimming content only. Landing no longer scrolls past the stats panel: past days collapse behind a toggle instead. Kickoff countdowns on cards, updating every minute.
+
+## cd094d3 - The LiveScore round
+
+Match pages gained an events timeline (goals with assists and running score, cards, subs, HT/FT) and stat bars from ESPN's boxscore, polling every 60s from 75 minutes before kickoff. New Groups page (all 12 tables, 5 min refresh). New Stats page (top scorers, assists, discipline, 15 min refresh), computed from match data because no ESPN leaders endpoint exists for this league; output matches ESPN's published stats exactly.
+
+## a3d7742 - Match page sub-tabs
+
+Stats (landing, embed above the bars when available), Events, Lineups, Watch (embed plus SBS links), LiveScore style.
+
+## f93b440 - Nav order
+
+Schedule, Groups, Stats, Australia, Favourites.
