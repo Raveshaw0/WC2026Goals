@@ -37,3 +37,11 @@ Stats (landing, embed above the bars when available), Events, Lineups, Watch (em
 ## f93b440 - Nav order
 
 Schedule, Groups, Stats, Australia, Favourites.
+
+## 56453fb - Docs
+
+README, refreshed PRODUCT, new ARCHITECTURE and this changelog.
+
+## cc9fa25 - Table sub-tab
+
+Match pages gained a Table tab showing that group's standings with the two competing teams highlighted, via a GroupTable component shared with the groups page. Knockout matches (no group) skip the tab.
