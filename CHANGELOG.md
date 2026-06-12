@@ -45,3 +45,7 @@ README, refreshed PRODUCT, new ARCHITECTURE and this changelog.
 ## cc9fa25 - Table sub-tab
 
 Match pages gained a Table tab showing that group's standings with the two competing teams highlighted, via a GroupTable component shared with the groups page. Knockout matches (no group) skip the tab.
+
+## f2aa0f0, 287a511 - Favicon
+
+Soccer ball favicon at `src/app/icon.svg` (App Router serves `icon.svg` automatically). Second iteration is the classic truncated-icosahedron panel ball: centre pentagon, five rim pentagons clipped by the sphere, seams. Verified legible at 32px before shipping.
