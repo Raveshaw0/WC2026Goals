@@ -14,7 +14,7 @@ The embedded highlights player on match detail pages comes from SBS Sport's YouT
 
 ## Issue reports require RESEND_API_KEY
 
-The "Something is broken" button posts to `/api/report`, which emails raveshaw@gmail.com via Resend from the verified send.alextestingstuff.com domain. Without `RESEND_API_KEY` set, the endpoint returns 503 and the UI shows "Could not send".
+The "Something is broken" button posts to `/api/report`, which emails alexanderlukic84@gmail.com via a dedicated Resend account (sending from onboarding@resend.dev to the account's own inbox needs no domain verification; override with REPORT_TO_EMAIL / REPORT_FROM_EMAIL if a domain is verified later). Without `RESEND_API_KEY` set, the endpoint returns 503 and the UI shows "Could not send".
 
 ## Rate limiting and throttles are per-instance
 

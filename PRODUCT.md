@@ -57,7 +57,7 @@ SBS Sport mirrors the short highlights cut to YouTube (@SBSSportau), which can b
 
 ### Issue reporting
 
-A red flag button in the header opens a "Something is broken" box; reports POST to `/api/report` and are emailed to raveshaw@gmail.com via Resend (requires `RESEND_API_KEY`, from the verified send.alextestingstuff.com domain). Rate limited 5/min/IP.
+A red flag button in the header opens a "Something is broken" box; reports POST to `/api/report` and are emailed to alexanderlukic84@gmail.com via a dedicated Resend account (requires `RESEND_API_KEY`; optional REPORT_TO_EMAIL / REPORT_FROM_EMAIL overrides). Rate limited 5/min/IP.
 
 No SBS audio or video is embedded. SBS playback is DRM and account gated; we link out only.
 

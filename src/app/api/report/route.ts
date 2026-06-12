@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-// "Something is broken" reports, emailed via Resend. The from domain is the
-// verified send.alextestingstuff.com; the key is server-side only.
-const TO = "raveshaw@gmail.com";
-const FROM = "WC26 Tracker <noreply@send.alextestingstuff.com>";
+// "Something is broken" reports, emailed via Resend. The dedicated wc26
+// Resend account (alexanderlukic84@gmail.com) sends from the onboarding
+// address to its own inbox, which needs no domain verification. If a domain
+// is verified later, override both via env.
+const TO = process.env.REPORT_TO_EMAIL ?? "alexanderlukic84@gmail.com";
+const FROM =
+  process.env.REPORT_FROM_EMAIL ?? "WC26 Tracker <onboarding@resend.dev>";
 
 // 5 reports per minute per IP, in-memory per instance.
 const WINDOW_MS = 60_000;

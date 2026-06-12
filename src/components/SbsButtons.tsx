@@ -45,6 +45,9 @@ export function SbsButtons({ match }: { match: Match }) {
   const heading = (
     <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-zinc-400">
       SBS links
+      <span className="ml-1.5 font-medium normal-case tracking-normal text-zinc-500">
+        (requires SBS login)
+      </span>
     </h2>
   );
 
