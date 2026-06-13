@@ -46,6 +46,10 @@ README, refreshed PRODUCT, new ARCHITECTURE and this changelog.
 
 Match pages gained a Table tab showing that group's standings with the two competing teams highlighted, via a GroupTable component shared with the groups page. Knockout matches (no group) skip the tab.
 
+## Private visitor analytics
+
+Lightweight first-party analytics, no cookies, no consent banner, nothing user-facing. A client beacon (`Beacon.tsx`, anonymous per-browser id, counts humans not bots) posts each view to `/api/track`, which writes to a shared `page_views` table (a `site` column separates wc26 from the landing site, which reuses the same setup and database). A secret `/api/insights?key=...` returns JSON and `/insights?key=...` renders a human dashboard (total / unique / returning / from-LinkedIn / 24h, per-day chart, top referrers / countries / pages). Returning = a device seen on 2+ distinct days. Gated by `INSIGHTS_KEY`; nothing links to either, wrong/absent key 404s the page and 403s the API.
+
 ## Favicon + scorers/events polish
 
 Classic panel-ball favicon (`src/app/icon.svg`). Score card now lists each team's scorers with minutes (grouped per player, own goals and penalties flagged). Fixed the own-goal running score: ESPN credits the OG event to the benefiting team, so the earlier "flip for own goal" logic was double-counting to the wrong side (showed 0-1 instead of 1-0). Events tab now refreshes once on mount so back-navigation never shows a stale snapshot from Next's router cache. Event types are visually distinct: ball icon for goals (mint-tinted row + running score), yellow/red card chips, green/grey sub arrows.

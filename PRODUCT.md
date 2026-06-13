@@ -54,6 +54,10 @@ Live behaviour: score updates every 4 seconds; events, stats and lineups poll ev
 
 The red flag button opens "Something is broken?", which emails the report (with the page path) via Resend. Rate limited.
 
+## Analytics (owner-only)
+
+Invisible to visitors: a no-cookie beacon logs each page view (path, referrer, country, anonymous device id). The owner reads it at `/insights?key=...` (a key-gated dark dashboard: total / unique / returning visitors, LinkedIn referrals, per-day chart, top referrers, countries and pages) or `/api/insights?key=...` for JSON. Nothing links to either and both reject requests without the key. See ARCHITECTURE.md.
+
 ## Design
 
 Dark theme, mint accent, system font stack, mobile-first with desktop grids. Only images are team flags from ESPN's CDN and YouTube thumbnails inside embeds. No analytics, no cookies, no cookie banner needed.

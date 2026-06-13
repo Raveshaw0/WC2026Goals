@@ -36,6 +36,10 @@ ESPN's scoreboard exposes a `shootoutScore` field on competitors in some seasons
 
 The scoreboard payload does not include group letters for group stage matches (only knockout placeholder names mention groups). The adapter fetches ESPN standings once per hour and joins team id to group. If the standings fetch fails, group badges are omitted but everything else renders.
 
+## Visitor analytics counts are approximate
+
+Unique/returning visitor counts key off a random id in the browser's localStorage (no cookies, no IP storage). Clearing storage, incognito mode, or visiting from another device/browser all read as a new visitor, so uniques skew slightly high and returns slightly low. The owner dashboard lives at `/insights?key=INSIGHTS_KEY` (key not in the repo; it's an env var). Good enough for gauging real interest, not a billing-grade analytics product.
+
 ## Stats exclude matches with missing data
 
 Per spec: if a match is marked watched but ESPN data for it is unavailable, it is excluded from goals-seen maths rather than guessed. The watched count still includes it.

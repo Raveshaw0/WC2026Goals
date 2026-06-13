@@ -14,6 +14,7 @@ Built in one night (June 12, 2026, day two of the tournament) to solve one probl
 - **Watched tracking and stats**: tick off matches (auto-ticked when you play highlights), see goals-seen percentage, follow teams, favourite matches
 - **Cross-device sync** via a readable code (TIGER-42 style), no accounts
 - **Issue reporting** straight to email from the header flag button
+- **Private analytics**: no-cookie first-party visit logging, viewable only by the owner at a key-gated `/insights` dashboard (see ARCHITECTURE.md)
 
 ## Docs
 

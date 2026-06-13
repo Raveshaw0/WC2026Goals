@@ -68,6 +68,18 @@ Merge semantics, the part that bit us:
 - Sync responses are **merged into current local state, never replace it**, with an in-flight guard. A response landing after a newer tap used to visually revert the toggle for a beat (the flicker bug)
 - localStorage key (`wc26.state.v1`) is constant across deploys
 
+## Visitor analytics (private, first-party)
+
+No third party, no cookies, no consent banner, nothing user-facing.
+
+- `Beacon.tsx` (client, in the root layout) fires once per navigation via `navigator.sendBeacon` to `/api/track`, sending path, `document.referrer`, and a stable random id kept in localStorage (`wc26.vid`). Client-side on purpose: it counts JS-executing humans, not the bots that crawl any public URL.
+- `/api/track` stamps the country from Vercel's `x-vercel-ip-country` header and inserts a row into `page_views`. Fire-and-forget; any failure is swallowed.
+- `page_views` table: `ts, site, path, referrer, visitor, country`. The `site` column (`wc26` here, `landing` on the landing site) lets one table and one Supabase project serve both sites.
+- `computeInsights(site, days)` in `src/lib/insights.ts` aggregates: total views, unique visitors (distinct ids), returning (ids seen on 2+ distinct days), last-24h, LinkedIn referrals, and top referrers/countries/pages plus a per-day series.
+- `GET /api/insights?key=...&days=N` returns that as JSON; `/insights?key=...` renders it as a dark dashboard (`InsightsPanel.tsx`). Both gated by `INSIGHTS_KEY`; the page 404s and the API 403s without it. Nothing links to either.
+
+Caveat: uniqueness is per-browser-localStorage, so cleared storage, incognito, or a different device/browser reads as a new visitor. Fine for "are real people visiting and returning".
+
 ## Resilience
 
 `cachedJson()` in the ESPN adapter keeps the last good payload per endpoint in module scope; failures serve it with `stale: true` and the UI shows a "data may be stale" banner with the last updated time. Malformed events are dropped individually rather than failing the batch. Rate limits (`/api/state` 30/min/IP, `/api/report` 5/min/IP) are in-memory per instance; the DB-level gates hold globally.
@@ -81,4 +93,4 @@ Merge semantics, the part that bit us:
 
 ## Deployment
 
-Vercel project `wc26-tracker` (functions pinned to syd1 via `vercel.json`), git-connected to `Raveshaw0/WC2026Goals` for auto-deploy on push. Custom domain `wc2026.alextestingstuff.com` via CNAME to `cname.vercel-dns.com` at VentraIP. Env vars: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY` (optional, report button), with `REPORT_TO_EMAIL` / `REPORT_FROM_EMAIL` overrides available.
+Vercel project `wc26-tracker` (functions pinned to syd1 via `vercel.json`), git-connected to `Raveshaw0/WC2026Goals` for auto-deploy on push. Custom domain `wc2026.alextestingstuff.com` via CNAME to `cname.vercel-dns.com` at VentraIP. Env vars: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY` (optional, report button), `INSIGHTS_KEY` (gates the analytics dashboard/endpoint), with `REPORT_TO_EMAIL` / `REPORT_FROM_EMAIL` overrides available. The landing site (`alextestingstuff.com`) runs the same analytics code with `site="landing"`, pointing `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` at this same project and sharing the `INSIGHTS_KEY`.
