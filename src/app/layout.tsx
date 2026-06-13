@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 
+import { Beacon } from "@/components/Beacon";
 import { Header } from "@/components/Header";
 import { UserStateProvider } from "@/hooks/useUserState";
 
@@ -41,6 +42,7 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className="min-h-screen font-sans">
         <UserStateProvider>
+          <Beacon />
           <Header />
           <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-4">
             {children}

@@ -119,3 +119,38 @@ export async function updateUserState(
 export function dbConfigured(): boolean {
   return env() !== null;
 }
+
+// ---- page_views (lightweight first-party analytics) ----
+
+export interface PageViewRow {
+  ts: string;
+  site: string;
+  path: string | null;
+  referrer: string | null;
+  visitor: string | null;
+  country: string | null;
+}
+
+export async function logPageView(
+  row: Omit<PageViewRow, "ts">
+): Promise<void> {
+  await rest(`/page_views`, {
+    method: "POST",
+    body: JSON.stringify(row),
+    prefer: "return=minimal",
+  });
+}
+
+// Pull raw rows for a site since a cutoff; aggregation happens in the route.
+export async function getPageViews(
+  site: string,
+  sinceIso: string
+): Promise<PageViewRow[]> {
+  const res = await rest(
+    `/page_views?site=eq.${encodeURIComponent(site)}` +
+      `&ts=gte.${encodeURIComponent(sinceIso)}` +
+      `&select=ts,referrer,visitor,country,path&order=ts.desc&limit=100000`
+  );
+  if (!res || !res.ok) return [];
+  return (await res.json()) as PageViewRow[];
+}
