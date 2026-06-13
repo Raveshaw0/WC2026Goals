@@ -52,6 +52,7 @@ export interface Match {
   status: MatchStatus;
   statusDetail: string; // ESPN human detail, e.g. "FT", "HT"
   displayClock: string; // e.g. "67'"
+  clock: number; // ESPN match clock in seconds (for live minute interpolation)
   round: Round;
   group: string | null; // "A".."L" for group stage
   knockout: boolean;

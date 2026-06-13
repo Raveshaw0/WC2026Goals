@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { EventsTimeline } from "@/components/EventsTimeline";
 import { GroupTable } from "@/components/GroupTable";
@@ -89,14 +89,54 @@ function useSummaryPolling(match: Match, initial: MatchSummary): MatchSummary {
     // (e.g. events frozen at the score from when you first opened the match).
     void fetchOnce();
 
-    if (!shouldPoll()) return;
-    const t = setInterval(() => {
-      if (shouldPoll()) void fetchOnce();
-    }, 60_000);
-    return () => clearInterval(t);
+    // Refresh the moment the tab regains focus (e.g. returning from the SBS
+    // stream), so events/stats aren't stuck until the next interval tick.
+    const onVisibility = () => {
+      if (!document.hidden && shouldPoll()) void fetchOnce();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    let t: ReturnType<typeof setInterval> | null = null;
+    if (shouldPoll()) {
+      t = setInterval(() => {
+        if (shouldPoll()) void fetchOnce();
+      }, 60_000);
+    }
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      if (t) clearInterval(t);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match.id, match.status]);
   return summary;
+}
+
+// Pseudo-live match minute. ESPN's clock only changes in ~minute chunks even
+// when polled every 4s, so we tick locally between polls for a live feel:
+// anchor on ESPN's clock (seconds) and the wall-clock moment it last changed,
+// then advance one second at a time, re-syncing on every poll. Stoppage time
+// (displayClock has "+") is shown verbatim, halftime is handled by the caller.
+function useLiveMinute(match: Match): string {
+  const anchor = useRef({ clock: match.clock, at: Date.now() });
+  const [, force] = useState(0);
+
+  if (anchor.current.clock !== match.clock) {
+    anchor.current = { clock: match.clock, at: Date.now() };
+  }
+
+  const live = match.status === "live";
+  useEffect(() => {
+    if (!live) return;
+    const t = setInterval(() => force((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [live]);
+
+  if (!live) return match.displayClock || "Live";
+  // During stoppage ESPN's "45'+3'" is authoritative; don't interpolate.
+  if (match.displayClock.includes("+")) return match.displayClock;
+  const secs =
+    anchor.current.clock + (Date.now() - anchor.current.at) / 1000;
+  return `${Math.floor(secs / 60)}'`;
 }
 
 function BallIcon({ className = "" }: { className?: string }) {
@@ -163,6 +203,8 @@ function TabPlaceholder({ text }: { text: string }) {
   );
 }
 
+const SBS_HUB = "https://www.sbs.com.au/ondemand/fifa-world-cup-2026";
+
 type DetailTab = "stats" | "events" | "lineups" | "table" | "watch";
 
 export function MatchDetailClient({
@@ -180,6 +222,7 @@ export function MatchDetailClient({
   const { matches } = useLiveMatches([initialMatch]);
   const match = matches[0] ?? initialMatch;
   const summary = useSummaryPolling(match, initialSummary);
+  const liveMinute = useLiveMinute(match);
   const { watched, favourites, toggleWatched, toggleFavourite } =
     useUserState();
   const isWatched = watched.has(match.id);
@@ -190,6 +233,8 @@ export function MatchDetailClient({
   const finished = match.status === "finished";
   const shootout =
     match.home.shootoutScore !== null && match.away.shootoutScore !== null;
+  // Live window also covers the few minutes either side of kickoff.
+  const inLiveWindow = isInLiveWindow(match);
 
   return (
     <div className="space-y-4">
@@ -223,7 +268,7 @@ export function MatchDetailClient({
                   {match.status === "live" ? (
                     <span className="flex items-center gap-1.5 text-xs font-semibold text-live">
                       <span className="live-dot inline-block h-2 w-2 rounded-full bg-live" />
-                      {match.displayClock || "Live"}
+                      {liveMinute}
                     </span>
                   ) : (
                     <span className="text-xs font-medium text-zinc-400">
@@ -275,6 +320,18 @@ export function MatchDetailClient({
             );
           })()}
       </div>
+
+      {inLiveWindow && (
+        <a
+          href={match.sbs?.live ?? SBS_HUB}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-center text-sm font-bold text-surface transition-opacity hover:opacity-90"
+        >
+          <span className="live-dot inline-block h-2 w-2 rounded-full bg-surface" />
+          Watch live on SBS
+        </a>
+      )}
 
       <div className="flex gap-2">
         {finished && (

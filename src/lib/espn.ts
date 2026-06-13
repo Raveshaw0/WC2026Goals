@@ -159,6 +159,7 @@ function mapEvent(e: any, groupByTeamId: Map<string, string>): Match | null {
       status,
       statusDetail: detail,
       displayClock: String(comp.status?.displayClock ?? ""),
+      clock: Number(comp.status?.clock ?? 0),
       round,
       group,
       knockout: round !== "group-stage",
