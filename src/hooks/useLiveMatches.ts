@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { anyLiveWindow } from "@/lib/liveWindow";
+import { anyLiveWindow, msUntilNextWindow } from "@/lib/liveWindow";
 import type { Match } from "@/lib/types";
 
 const LIVE_INTERVAL_MS = 4_000;
@@ -32,9 +32,15 @@ export function useLiveMatches(initialMatches: Match[]): LiveData {
     const schedule = () => {
       if (disposed || document.hidden) return;
       if (timer) clearTimeout(timer);
-      const interval = anyLiveWindow(matchesRef.current)
-        ? LIVE_INTERVAL_MS
-        : IDLE_INTERVAL_MS;
+      let interval: number;
+      if (anyLiveWindow(matchesRef.current)) {
+        interval = LIVE_INTERVAL_MS;
+      } else {
+        // Idle, but wake right as the next match's window opens so the first
+        // minutes of a kickoff are never stuck on the slow cadence.
+        const untilNext = msUntilNextWindow(matchesRef.current);
+        interval = Math.min(IDLE_INTERVAL_MS, Math.max(1_000, untilNext + 500));
+      }
       timer = setTimeout(tick, interval);
     };
 

@@ -35,3 +35,19 @@ export function anyLiveWindow(
 ): boolean {
   return matches.some((m) => isInLiveWindow(m, now));
 }
+
+// Milliseconds until the next match's live window opens, or Infinity if none
+// upcoming. Lets the idle poller wake exactly at kickoff-minus-5 instead of
+// drifting up to a full idle interval behind a starting match.
+export function msUntilNextWindow(
+  matches: Pick<Match, "kickoff" | "knockout" | "status">[],
+  now: number = Date.now()
+): number {
+  let soonest = Infinity;
+  for (const m of matches) {
+    if (m.status === "finished" || m.status === "postponed") continue;
+    const { start } = liveWindowFor(m);
+    if (start > now && start - now < soonest) soonest = start - now;
+  }
+  return soonest;
+}
