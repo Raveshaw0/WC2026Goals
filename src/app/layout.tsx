@@ -6,8 +6,26 @@ import { UserStateProvider } from "@/hooks/useUserState";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  // metadataBase makes the opengraph-image resolve to an absolute URL, which
+  // LinkedIn/Twitter/etc. require when scraping the share card.
+  metadataBase: new URL("https://wc2026.alextestingstuff.com"),
   title: "WC26 Tracker",
-  description: "Personal FIFA World Cup 2026 tracker",
+  description:
+    "Every FIFA World Cup 2026 match: live scores, group tables, stats, and SBS highlights. Never miss a goal.",
+  openGraph: {
+    title: "WC26 Tracker",
+    description:
+      "Every FIFA World Cup 2026 match: live scores, group tables, stats, and SBS highlights. Never miss a goal.",
+    url: "https://wc2026.alextestingstuff.com",
+    siteName: "WC26 Tracker",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "WC26 Tracker",
+    description:
+      "Every FIFA World Cup 2026 match: live scores, group tables, stats, and SBS highlights. Never miss a goal.",
+  },
 };
 
 export const viewport: Viewport = {
