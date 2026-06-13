@@ -46,6 +46,10 @@ README, refreshed PRODUCT, new ARCHITECTURE and this changelog.
 
 Match pages gained a Table tab showing that group's standings with the two competing teams highlighted, via a GroupTable component shared with the groups page. Knockout matches (no group) skip the tab.
 
+## Favicon + scorers/events polish
+
+Classic panel-ball favicon (`src/app/icon.svg`). Score card now lists each team's scorers with minutes (grouped per player, own goals and penalties flagged). Fixed the own-goal running score: ESPN credits the OG event to the benefiting team, so the earlier "flip for own goal" logic was double-counting to the wrong side (showed 0-1 instead of 1-0). Events tab now refreshes once on mount so back-navigation never shows a stale snapshot from Next's router cache. Event types are visually distinct: ball icon for goals (mint-tinted row + running score), yellow/red card chips, green/grey sub arrows.
+
 ## f2aa0f0, 287a511 - Favicon
 
 Soccer ball favicon at `src/app/icon.svg` (App Router serves `icon.svg` automatically). Second iteration is the classic truncated-icosahedron panel ball: centre pentagon, five rim pentagons clipped by the sphere, seams. Verified legible at 32px before shipping.

@@ -292,8 +292,10 @@ function mapEvents(raw: any, homeTeamId: string): MatchEvent[] {
     const ownGoal = typeText.includes("Own Goal");
     if (isGoal || ownGoal) {
       // Own goals count for the opposition.
-      const scoringSide = ownGoal ? (side === "home" ? "away" : "home") : side;
-      if (scoringSide === "home") home++;
+      // ESPN credits the event's team to the team the goal COUNTS FOR, even
+      // for own goals (the OG scorer sits in participants but the team is the
+      // beneficiary). So the running score follows `side` directly; never flip.
+      if (side === "home") home++;
       else away++;
       out.push({
         minute,

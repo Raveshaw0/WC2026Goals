@@ -70,10 +70,9 @@ function useSummaryPolling(match: Match, initial: MatchSummary): MatchSummary {
       const now = Date.now();
       return now >= ko - 75 * 60 * 1000 && now <= end;
     };
-    if (!shouldPoll()) return;
 
-    const tick = async () => {
-      if (document.hidden || !shouldPoll()) return;
+    const fetchOnce = async () => {
+      if (document.hidden) return;
       try {
         const res = await fetch(`/api/match/${match.id}`);
         if (res.ok) {
@@ -84,12 +83,59 @@ function useSummaryPolling(match: Match, initial: MatchSummary): MatchSummary {
         // transient; next tick retries
       }
     };
-    const t = setInterval(() => void tick(), 60_000);
-    void tick();
+
+    // Always refresh once on mount. Next's client router cache can serve a
+    // stale page on back-navigation, so the server-rendered summary may lag
+    // (e.g. events frozen at the score from when you first opened the match).
+    void fetchOnce();
+
+    if (!shouldPoll()) return;
+    const t = setInterval(() => {
+      if (shouldPoll()) void fetchOnce();
+    }, 60_000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match.id, match.status]);
   return summary;
+}
+
+function BallIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 100 100"
+      className={className}
+      aria-hidden="true"
+    >
+      <circle cx="50" cy="50" r="46" fill="#e4e4e7" />
+      <polygon points="50,34 65,45 59,63 41,63 35,45" fill="#0a0e12" />
+    </svg>
+  );
+}
+
+// Scorers for one team, grouped by player with their minutes, e.g.
+// "Folarin Balogun 31', 45'+5'". Own goals and penalties are flagged. Own
+// goals already sit under the team they counted FOR (ESPN credits the
+// beneficiary), which is the LiveScore convention.
+function teamScorerLines(
+  goals: { minute: string; scorer: string; penalty: boolean; ownGoal: boolean }[]
+): { scorer: string; minutes: string }[] {
+  const order: string[] = [];
+  const byScorer = new Map<string, string[]>();
+  for (const g of goals) {
+    const mark = g.penalty ? " (P)" : g.ownGoal ? " (OG)" : "";
+    const m = `${g.minute}${mark}`;
+    if (!byScorer.has(g.scorer)) {
+      byScorer.set(g.scorer, []);
+      order.push(g.scorer);
+    }
+    byScorer.get(g.scorer)!.push(m);
+  }
+  return order.map((scorer) => ({
+    scorer,
+    minutes: byScorer.get(scorer)!.join(", "),
+  }));
 }
 
 function HighlightsEmbed({ match }: { match: Match }) {
@@ -192,6 +238,42 @@ export function MatchDetailClient({
           </div>
           <TeamColumn team={match.away} />
         </div>
+
+        {started &&
+          match.goals.some((g) => !g.shootout) &&
+          (() => {
+            const homeLines = teamScorerLines(
+              match.goals.filter((g) => !g.shootout && g.teamId === match.home.id)
+            );
+            const awayLines = teamScorerLines(
+              match.goals.filter((g) => !g.shootout && g.teamId === match.away.id)
+            );
+            return (
+              <div className="mt-4 flex items-start gap-2 border-t border-edge/60 pt-3 text-xs text-zinc-400">
+                <ul className="flex-1 space-y-0.5">
+                  {homeLines.map((l) => (
+                    <li key={l.scorer}>
+                      <span className="text-zinc-300">{l.scorer}</span>{" "}
+                      <span className="tabular-nums text-zinc-500">
+                        {l.minutes}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <BallIcon className="mt-0.5 shrink-0" />
+                <ul className="flex-1 space-y-0.5 text-right">
+                  {awayLines.map((l) => (
+                    <li key={l.scorer}>
+                      <span className="tabular-nums text-zinc-500">
+                        {l.minutes}
+                      </span>{" "}
+                      <span className="text-zinc-300">{l.scorer}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
       </div>
 
       <div className="flex gap-2">
