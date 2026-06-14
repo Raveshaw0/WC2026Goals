@@ -1,12 +1,16 @@
 import type { LineupPlayer, MatchEvent, TeamLineup } from "@/lib/types";
 
-// Plot starting XIs onto a pitch from ESPN position abbreviations (G, RB,
-// CD-L, AM-R, F, ...). The abbreviations encode both the line and the
-// left/right placement, which reconstructs the formation shape reliably
-// (formationPlace is only a tiebreak). Home occupies the top half attacking
-// down, away the bottom half attacking up, meeting at the halfway line.
-// Each marker carries a compact caption of that player's match events
-// (goals, cards, substituted-off) with minutes, so the pitch tells the story.
+// Plot starting XIs onto a pitch. ESPN's API gives only coarse position codes
+// (G/D/M/F) plus a `formationPlace` slot index (1-11) and the formation
+// string, so we reconstruct the shape the way ESPN.com does: from the
+// formation. parseFormation gives the line sizes; for formations whose
+// midfielders sit in a single band the coarse codes place everyone, and for
+// "stacked midfield" shapes (e.g. 4-2-3-1) a per-formation template maps each
+// slot to its band so the holding pair and the attacking line don't merge into
+// one row. band()/sideRank() remain only as a fallback for untemplated odd
+// formations. Home occupies the top half attacking down, away the bottom half
+// attacking up, meeting at the halfway line. Each marker carries a compact
+// caption of that player's events (goals, cards, subbed-off) with minutes.
 
 function band(posRaw: string): number {
   const p = posRaw.toUpperCase();
@@ -44,7 +48,96 @@ interface Plotted {
   y: number;
 }
 
-function layout(starters: LineupPlayer[]): Plotted[] {
+// Maps a formation string to bandOf[formationPlace] = band index, where band 0
+// is the goalkeeper, 1 the defensive line, increasing toward attack. Only
+// "stacked midfield" formations need an entry; single-midfield ones (4-4-2,
+// 4-3-3, 3-5-2, ...) are placed from the coarse G/D/M/F labels with no
+// template. Each template is decoded from ESPN's own formationPlace values for
+// a correctly-rendered lineup, then reused for every team in that formation.
+const FORMATION_TEMPLATES: Record<string, Record<number, number>> = {
+  // GK | DEF(3): 4,5,6 | midfield four: 2,3,7,8 | behind striker(2): 10,11 | ST: 9
+  "3-4-2-1": { 1: 0, 2: 2, 3: 2, 4: 1, 5: 1, 6: 1, 7: 2, 8: 2, 9: 4, 10: 3, 11: 3 },
+  // GK | DEF(4): 2,3,5,6 | holding(2): 4,8 | attacking(3): 7,10,11 | ST: 9
+  "4-2-3-1": { 1: 0, 2: 1, 3: 1, 4: 2, 5: 1, 6: 1, 7: 3, 8: 2, 9: 4, 10: 3, 11: 3 },
+};
+
+// Parse "4-2-3-1" -> [4,2,3,1] (outfield lines). null unless it cleanly adds up
+// to the 10 outfield players, so a junk string falls back to the heuristic.
+function parseFormation(formation: string | null): number[] | null {
+  if (!formation) return null;
+  const parts = formation.split("-").map((n) => Number(n.trim()));
+  if (parts.length < 2 || parts.some((n) => !Number.isInteger(n) || n <= 0)) {
+    return null;
+  }
+  if (parts.reduce((a, b) => a + b, 0) !== 10) return null;
+  return parts;
+}
+
+// Spread each band's players evenly across the width (ordered by formationPlace)
+// and stack the bands by depth (0 = own goal, 1 = attack).
+function placeBands(bands: LineupPlayer[][]): Plotted[] {
+  const rows = bands.length;
+  const out: Plotted[] = [];
+  bands.forEach((line, depth) => {
+    const ordered = line
+      .slice()
+      .sort((a, b) => Number(a.formationPlace) - Number(b.formationPlace));
+    ordered.forEach((player, j) => {
+      out.push({
+        player,
+        x: (j + 1) / (ordered.length + 1),
+        y: rows <= 1 ? 0 : depth / (rows - 1),
+      });
+    });
+  });
+  return out;
+}
+
+// Template path: place every player by its formationPlace -> band. Null if any
+// starter's slot is missing from the template, so we fall back cleanly.
+function layoutByTemplate(
+  starters: LineupPlayer[],
+  lines: number[],
+  bandOf: Record<number, number>
+): Plotted[] | null {
+  const numBands = lines.length + 1; // + goalkeeper
+  const bands: LineupPlayer[][] = Array.from({ length: numBands }, () => []);
+  for (const p of starters) {
+    const b = bandOf[Number(p.formationPlace)];
+    if (b === undefined || b >= numBands) return null;
+    bands[b].push(p);
+  }
+  return placeBands(bands);
+}
+
+// Coarse path: works when the formation has a single midfield band, so G/D/M/F
+// maps straight onto lines. Null if the labels don't reconcile with the
+// formation (then we fall back).
+function layoutByCoarse(
+  starters: LineupPlayer[],
+  lines: number[]
+): Plotted[] | null {
+  if (lines.length !== 3) return null; // only single-midfield shapes here
+  const by = (pos: string) => starters.filter((p) => p.position === pos);
+  const gks = by("G");
+  const def = by("D");
+  const mid = by("M");
+  const fwd = by("F");
+  if (
+    gks.length !== 1 ||
+    def.length !== lines[0] ||
+    mid.length !== lines[1] ||
+    fwd.length !== lines[2]
+  ) {
+    return null;
+  }
+  return placeBands([gks, def, mid, fwd]);
+}
+
+// Fallback heuristic (pre-template behaviour): infer a band from the position
+// abbreviation. Collapses multi-band midfields, but never renders worse than
+// before for formations we don't yet template.
+function layoutHeuristic(starters: LineupPlayer[]): Plotted[] {
   const byBand = new Map<number, LineupPlayer[]>();
   for (const p of starters) {
     const b = band(p.position);
@@ -73,6 +166,20 @@ function layout(starters: LineupPlayer[]): Plotted[] {
     });
   });
   return out;
+}
+
+function layout(starters: LineupPlayer[], formation: string | null): Plotted[] {
+  const lines = parseFormation(formation);
+  if (lines && formation) {
+    const template = FORMATION_TEMPLATES[formation];
+    if (template) {
+      const byTemplate = layoutByTemplate(starters, lines, template);
+      if (byTemplate) return byTemplate;
+    }
+    const byCoarse = layoutByCoarse(starters, lines);
+    if (byCoarse) return byCoarse;
+  }
+  return layoutHeuristic(starters);
 }
 
 function lastName(name: string): string {
@@ -260,8 +367,8 @@ export function LineupPitch({
   const awayXI = away.starters;
   if (homeXI.length < 11 || awayXI.length < 11) return null;
 
-  const homePlot = layout(homeXI);
-  const awayPlot = layout(awayXI);
+  const homePlot = layout(homeXI, home.formation);
+  const awayPlot = layout(awayXI, away.formation);
   const evMap = buildEventMap(events);
   // No-spoilers: drop goal markers (keep cards/subs, which aren't results).
   if (hideGoals) evMap.forEach((e) => (e.goals = []));
