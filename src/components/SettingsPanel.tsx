@@ -9,6 +9,18 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const [input, setInput] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const copyCode = async () => {
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard blocked (e.g. insecure context); manual select-all still works.
+    }
+  };
 
   const submit = async () => {
     if (!input.trim() || busy) return;
@@ -38,8 +50,19 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
       </div>
       <div>
         <div className="text-zinc-400">Your sync code</div>
-        <div className="mt-1 inline-block rounded-lg bg-cardSoft px-3 py-1.5 font-mono text-base tracking-wide text-accent">
-          {code ?? "..."}
+        <div className="mt-1 flex items-center gap-2">
+          <span className="select-all rounded-lg bg-cardSoft px-3 py-1.5 font-mono text-base tracking-wide text-accent">
+            {code ?? "..."}
+          </span>
+          <button
+            type="button"
+            onClick={() => void copyCode()}
+            disabled={!code}
+            aria-label="Copy sync code"
+            className="rounded-lg bg-accent/15 px-3 py-1.5 font-medium text-accent transition-colors hover:bg-accent/25 disabled:opacity-50"
+          >
+            {copied ? "Copied" : "Copy"}
+          </button>
         </div>
         <p className="mt-1 text-xs text-zinc-500">
           Enter this code on your other devices to sync.
