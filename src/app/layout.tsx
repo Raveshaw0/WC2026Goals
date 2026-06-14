@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 
 import { Beacon } from "@/components/Beacon";
 import { Header } from "@/components/Header";
+import { PhotoBackground } from "@/components/PhotoBackground";
 import { SpoilerProvider } from "@/hooks/useSpoiler";
 import { UserStateProvider } from "@/hooks/useUserState";
 
@@ -42,6 +43,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="min-h-screen font-sans">
+        <PhotoBackground />
         <UserStateProvider>
           <SpoilerProvider>
             <Beacon />
