@@ -212,7 +212,10 @@ export async function fetchAllMatches(): Promise<FetchResult<Match[]>> {
   const [events, groupMap] = await Promise.all([
     cachedJson(
       `${BASE}/scoreboard?dates=${TOURNAMENT_RANGE}&limit=200`,
-      300,
+      // 60s: standings are now computed from these results, so the table
+      // reflects a full-time score within ~a minute (also keeps schedule
+      // scores fresh on server renders). One ESPN call/min is negligible.
+      60,
       "scoreboard-all",
       validateEvents
     ),
@@ -444,60 +447,107 @@ export async function fetchMatchSummary(
   };
 }
 
-// ---- group standings ----
+// ---- group standings (computed from results) ----
+// ESPN's standings endpoint lags full-time by many minutes (sometimes it only
+// catches up once a whole matchday finishes), so the table is computed from
+// the scoreboard results instead — the same "don't trust ESPN's aggregates"
+// stance used for leaders. Only finished group-stage matches count; an
+// in-progress match doesn't move the table. Tiebreak: points, goal
+// difference, goals for, then name. FIFA's head-to-head and fair-play
+// tiebreakers aren't replicated (rare in practice, not worth the complexity
+// here), so ordering can differ from the official table only among teams
+// level on all of points, GD and GF.
+function computeStandings(matches: Match[]): GroupStanding[] {
+  const byGroup = new Map<string, Map<string, StandingRow>>();
+  const ensure = (group: string, side: TeamSide): StandingRow => {
+    let teams = byGroup.get(group);
+    if (!teams) {
+      teams = new Map();
+      byGroup.set(group, teams);
+    }
+    let row = teams.get(side.id);
+    if (!row) {
+      row = {
+        teamId: side.id,
+        name: side.name,
+        flag: side.flag,
+        played: 0,
+        wins: 0,
+        draws: 0,
+        losses: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+        goalDiff: 0,
+        points: 0,
+        rank: 0,
+      };
+      teams.set(side.id, row);
+    } else if (!row.flag && side.flag) {
+      row.flag = side.flag; // fill in from a later fixture if the first lacked it
+    }
+    return row;
+  };
+
+  for (const m of matches) {
+    if (m.round !== "group-stage" || !m.group) continue;
+    // Register both teams so all four show before they've kicked a ball.
+    const home = ensure(m.group, m.home);
+    const away = ensure(m.group, m.away);
+    if (m.status !== "finished") continue;
+    const hs = m.home.score;
+    const as = m.away.score;
+    if (hs === null || as === null) continue;
+    home.played++;
+    away.played++;
+    home.goalsFor += hs;
+    home.goalsAgainst += as;
+    away.goalsFor += as;
+    away.goalsAgainst += hs;
+    if (hs > as) {
+      home.wins++;
+      away.losses++;
+    } else if (hs < as) {
+      away.wins++;
+      home.losses++;
+    } else {
+      home.draws++;
+      away.draws++;
+    }
+  }
+
+  const groups: GroupStanding[] = [];
+  for (const [letter, teams] of Array.from(byGroup.entries())) {
+    const rows = Array.from(teams.values());
+    for (const r of rows) {
+      r.goalDiff = r.goalsFor - r.goalsAgainst;
+      r.points = r.wins * 3 + r.draws;
+    }
+    rows.sort(
+      (a, b) =>
+        b.points - a.points ||
+        b.goalDiff - a.goalDiff ||
+        b.goalsFor - a.goalsFor ||
+        a.name.localeCompare(b.name)
+    );
+    rows.forEach((r, i) => (r.rank = i + 1));
+    groups.push({ group: letter, rows });
+  }
+  groups.sort((a, b) => a.group.localeCompare(b.group));
+  return groups;
+}
 
 export async function fetchGroupStandings(): Promise<
   FetchResult<GroupStanding[]>
 > {
-  const result = await cachedJson(
-    STANDINGS_URL,
-    300,
-    "standings-tables",
-    (raw) => {
-      const children = (raw as any)?.children;
-      if (!Array.isArray(children)) throw new Error("unexpected standings shape");
-      return children;
-    }
-  );
-  if (!result.data) {
-    return { data: null, stale: true, lastUpdated: result.lastUpdated };
+  const all = await fetchAllMatches();
+  if (!all.data) {
+    return { data: null, stale: true, lastUpdated: all.lastUpdated };
   }
-  const stat = (entry: any, name: string): number =>
-    Number(
-      (entry?.stats ?? []).find((s: any) => s?.name === name)?.value ?? 0
-    );
-  const groups: GroupStanding[] = [];
-  for (const child of result.data) {
-    const letter = String(child?.name ?? "").replace(/^Group\s+/i, "").trim();
-    const rows: StandingRow[] = [];
-    for (const entry of child?.standings?.entries ?? []) {
-      const team = entry?.team ?? {};
-      rows.push({
-        teamId: String(team.id ?? ""),
-        name: String(team.displayName ?? ""),
-        flag:
-          team.logos?.[0]?.href ??
-          (team.id
-            ? `https://a.espncdn.com/i/teamlogos/countries/500/${String(
-                team.abbreviation ?? ""
-              ).toLowerCase()}.png`
-            : null),
-        played: stat(entry, "gamesPlayed"),
-        wins: stat(entry, "wins"),
-        draws: stat(entry, "ties"),
-        losses: stat(entry, "losses"),
-        goalsFor: stat(entry, "pointsFor"),
-        goalsAgainst: stat(entry, "pointsAgainst"),
-        goalDiff: stat(entry, "pointDifferential"),
-        points: stat(entry, "points"),
-        rank: stat(entry, "rank"),
-      });
-    }
-    rows.sort((a, b) => a.rank - b.rank);
-    groups.push({ group: letter, rows });
-  }
-  groups.sort((a, b) => a.group.localeCompare(b.group));
-  return { data: groups, stale: result.stale, lastUpdated: result.lastUpdated };
+  return {
+    data: computeStandings(all.data),
+    stale: all.stale,
+    lastUpdated: all.lastUpdated,
+  };
 }
 
 // ---- tournament leaders, computed from match data ----

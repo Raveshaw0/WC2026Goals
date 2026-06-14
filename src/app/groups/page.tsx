@@ -3,8 +3,10 @@ import { SpoilerCover } from "@/components/SpoilerCover";
 import { StaleBanner } from "@/components/StaleBanner";
 import { fetchGroupStandings } from "@/lib/espn";
 
-// Group tables refresh every 5 minutes; standings only move at full time.
-export const revalidate = 300;
+// Standings are computed from live results, so render dynamically and let the
+// underlying scoreboard cache (60s) bound freshness — the table reflects a
+// full-time result within ~a minute instead of ESPN's multi-minute lag.
+export const dynamic = "force-dynamic";
 
 export default async function GroupsPage() {
   const result = await fetchGroupStandings();

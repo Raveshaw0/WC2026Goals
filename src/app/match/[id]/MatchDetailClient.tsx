@@ -467,7 +467,7 @@ export function MatchDetailClient({
                   hideGoals={matchHidden}
                 />
               )}
-              <Lineups lineups={summary.lineups} />
+              <Lineups lineups={summary.lineups} events={summary.events} />
             </div>
           );
         })()}
