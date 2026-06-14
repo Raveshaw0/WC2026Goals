@@ -113,11 +113,24 @@ function buildEventMap(events: MatchEvent[]): Map<string, PlayerEvents> {
   return map;
 }
 
+// Classic panel soccer ball: white sphere, dark rim, centre pentagon and five
+// spokes to the rim. Reads clearly as a ball even at ~13px.
 function Ball() {
   return (
-    <svg width="9" height="9" viewBox="0 0 100 100" aria-hidden="true">
-      <circle cx="50" cy="50" r="46" fill="#fff" />
-      <polygon points="50,32 68,45 61,66 39,66 32,45" fill="#0a0e12" />
+    <svg
+      viewBox="0 0 100 100"
+      className="h-3 w-3 shrink-0 sm:h-[15px] sm:w-[15px]"
+      aria-hidden="true"
+    >
+      <circle cx="50" cy="50" r="46" fill="#fff" stroke="#0a0e12" strokeWidth="6" />
+      <polygon points="50,32 67.1,44.4 60.6,64.6 39.4,64.6 32.9,44.4" fill="#0a0e12" />
+      <g stroke="#0a0e12" strokeWidth="5" strokeLinecap="round">
+        <line x1="50" y1="32" x2="50" y2="11" />
+        <line x1="67.1" y1="44.4" x2="86" y2="38" />
+        <line x1="60.6" y1="64.6" x2="72" y2="81" />
+        <line x1="39.4" y1="64.6" x2="28" y2="81" />
+        <line x1="32.9" y1="44.4" x2="14" y2="38" />
+      </g>
     </svg>
   );
 }
@@ -125,7 +138,7 @@ function CardChip({ red }: { red?: boolean }) {
   return (
     <span
       className={
-        "inline-block h-[10px] w-[7px] rounded-[1px] " +
+        "inline-block h-3 w-[8px] shrink-0 rounded-[1px] sm:h-[15px] sm:w-[10px] " +
         (red ? "bg-red-500" : "bg-amber-400")
       }
       aria-hidden="true"
@@ -134,7 +147,11 @@ function CardChip({ red }: { red?: boolean }) {
 }
 function SubArrow() {
   return (
-    <svg width="9" height="9" viewBox="0 0 24 24" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-3 w-3 shrink-0 sm:h-[15px] sm:w-[15px]"
+      aria-hidden="true"
+    >
       <path d="M12 21l-6-7h4V3h4v11h4z" fill="#f87171" />
     </svg>
   );
@@ -179,7 +196,7 @@ function EventCaption({ ev }: { ev: PlayerEvents }) {
   }
   if (tokens.length === 0) return null;
   return (
-    <span className="mt-px flex flex-wrap items-center justify-center gap-x-1 gap-y-0 text-[8px] font-semibold leading-tight text-white">
+    <span className="mt-px flex max-w-full flex-wrap items-center justify-center gap-x-1 gap-y-0 text-[9px] font-semibold leading-tight text-white sm:text-[11px]">
       {tokens}
     </span>
   );
@@ -201,12 +218,12 @@ function Marker({
   const subbed = Boolean(ev?.subOff);
   return (
     <div
-      className="absolute flex w-[64px] -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+      className="absolute flex w-14 -translate-x-1/2 -translate-y-1/2 flex-col items-center sm:w-[76px]"
       style={{ top: `${topPct}%`, left: `${leftPct}%` }}
     >
       <span
         className={
-          "flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold tabular-nums text-white shadow " +
+          "flex h-8 w-8 items-center justify-center rounded-full border text-[13px] font-bold tabular-nums text-white shadow sm:h-10 sm:w-10 sm:text-base " +
           (tone === "home"
             ? "border-accent bg-accent/25"
             : "border-sky-400 bg-sky-400/25") +
@@ -217,7 +234,7 @@ function Marker({
       </span>
       <span
         className={
-          "mt-0.5 max-w-[64px] truncate text-[9px] leading-tight " +
+          "mt-0.5 max-w-full truncate text-[10px] leading-tight sm:text-xs " +
           (subbed ? "text-zinc-400" : "text-zinc-200")
         }
       >
@@ -249,7 +266,7 @@ export function LineupPitch({
   const awayTop = (y: number) => 96 - y * 42;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-edge">
+    <div className="mx-auto w-full max-w-[460px] overflow-hidden rounded-2xl border border-edge">
       <div
         className="relative w-full"
         style={{
