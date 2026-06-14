@@ -262,15 +262,17 @@ export function LineupPitch({
   const awayPlot = layout(awayXI);
   const evMap = buildEventMap(events);
 
-  const homeTop = (y: number) => 4 + y * 42;
-  const awayTop = (y: number) => 96 - y * 42;
+  // Keep each team's deepest line back from the halfway line so the two
+  // attacking rows never collide and there's room for captions in between.
+  const homeTop = (y: number) => 4 + y * 36; // 4%..40%
+  const awayTop = (y: number) => 96 - y * 36; // 96%..60%
 
   return (
     <div className="mx-auto w-full max-w-[460px] overflow-hidden rounded-2xl border border-edge">
       <div
         className="relative w-full"
         style={{
-          aspectRatio: "2 / 3",
+          aspectRatio: "5 / 9",
           background:
             "linear-gradient(180deg,#123524 0%,#0e2a1e 50%,#123524 100%)",
         }}
