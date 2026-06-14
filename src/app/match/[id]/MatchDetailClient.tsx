@@ -29,33 +29,38 @@ const ROUND_LABELS: Record<string, string> = {
   final: "Final",
 };
 
-function TeamColumn({ team }: { team: TeamSide }) {
+function TeamColumn({ team, side }: { team: TeamSide; side: "home" | "away" }) {
   const { favouriteTeams, toggleFavouriteTeam } = useUserState();
   // Knockout placeholders ("Group A Winner", "Semifinal 1 Loser") are not
   // real teams yet
   const isRealTeam =
     /^[0-9]+$/.test(team.id) && !/Winner|Loser|Place/.test(team.name);
   const isFav = favouriteTeams.has(team.id);
+  // Small follow star beside the flag (mirrored: home on the flag's right,
+  // away on its left), no wording.
+  const followStar = isRealTeam && (
+    <button
+      type="button"
+      aria-pressed={isFav}
+      aria-label={isFav ? `Following ${team.name}` : `Follow ${team.name}`}
+      title={isFav ? "Following" : "Follow team"}
+      onClick={() => toggleFavouriteTeam(team.id)}
+      className={
+        "shrink-0 rounded-full p-0.5 transition-colors " +
+        (isFav ? "text-amber-400" : "text-zinc-500 hover:text-zinc-300")
+      }
+    >
+      <StarIcon filled={isFav} />
+    </button>
+  );
   return (
-    <div className="flex flex-1 flex-col items-center gap-2 text-center">
-      <Flag team={team} size={48} />
+    <div className="flex flex-1 flex-col items-center gap-1.5 text-center">
+      <div className="flex items-center gap-1">
+        {side === "away" && followStar}
+        <Flag team={team} size={44} />
+        {side === "home" && followStar}
+      </div>
       <span className="text-sm font-semibold text-zinc-100">{team.name}</span>
-      {isRealTeam && (
-        <button
-          type="button"
-          aria-pressed={isFav}
-          onClick={() => toggleFavouriteTeam(team.id)}
-          className={
-            "flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium transition-colors " +
-            (isFav
-              ? "bg-amber-400/10 text-amber-400"
-              : "text-zinc-500 hover:text-zinc-300")
-          }
-        >
-          <StarIcon filled={isFav} />
-          {isFav ? "Following" : "Follow team"}
-        </button>
-      )}
     </div>
   );
 }
@@ -257,19 +262,81 @@ export function MatchDetailClient({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-edge bg-card px-4 py-5">
-        <div className="mb-1 text-center text-xs text-zinc-500">
+      {/* Sticky sub-tab bar above the score so it's the first thing seen and
+          stays reachable while scrolling. top-20 clears the sticky header. */}
+      <div className="sticky top-20 z-10 flex gap-1 rounded-full border border-accent/30 bg-card/70 p-1 backdrop-blur">
+        {(
+          [
+            ["stats", "Stats"],
+            ["events", "Events"],
+            ["lineups", "Lineups"],
+            ...(groupTable ? [["table", "Table"]] : []),
+            ["watch", "Watch"],
+          ] as Array<[DetailTab, string]>
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setTab(value)}
+            className={
+              "flex-1 whitespace-nowrap rounded-full px-1.5 py-1.5 text-sm font-medium transition-colors " +
+              (tab === value
+                ? "bg-accent/20 text-accent"
+                : "text-zinc-300 hover:text-zinc-100")
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="relative rounded-2xl border border-edge bg-card px-4 py-4">
+        <div className="absolute right-2 top-2 flex items-center gap-0.5">
+          {finished && (
+            <button
+              type="button"
+              onClick={() => toggleWatched(match.id)}
+              aria-pressed={isWatched}
+              aria-label={isWatched ? "Watched" : "Mark watched"}
+              title={isWatched ? "Watched" : "Mark watched"}
+              className={
+                "rounded-full p-1.5 transition-colors " +
+                (isWatched
+                  ? "text-accent"
+                  : "text-zinc-500 hover:text-zinc-300")
+              }
+            >
+              <EyeIcon />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => toggleFavourite(match.id)}
+            aria-pressed={isFavourite}
+            aria-label={isFavourite ? "Favourited" : "Add favourite"}
+            title={isFavourite ? "Favourite" : "Add favourite"}
+            className={
+              "rounded-full p-1.5 transition-colors " +
+              (isFavourite
+                ? "text-amber-400"
+                : "text-zinc-500 hover:text-zinc-300")
+            }
+          >
+            <StarIcon filled={isFavourite} />
+          </button>
+        </div>
+        <div className="mb-1 px-10 text-center text-xs text-zinc-500">
           {match.group !== null
             ? `Group ${match.group}`
             : ROUND_LABELS[match.round]}
           {match.venue && <> at {match.venue}</>}
           {match.city && <>, {match.city}</>}
         </div>
-        <div className="mb-4 text-center text-xs text-zinc-500">
+        <div className="mb-3 px-10 text-center text-xs text-zinc-500">
           {melbourneDateTimeShort(match.kickoff)} Melbourne time
         </div>
         <div className="flex items-start gap-3">
-          <TeamColumn team={match.home} />
+          <TeamColumn team={match.home} side="home" />
           <div className="flex flex-col items-center pt-2">
             {started ? (
               <>
@@ -302,7 +369,7 @@ export function MatchDetailClient({
               <div className="text-lg font-bold text-zinc-500">v</div>
             )}
           </div>
-          <TeamColumn team={match.away} />
+          <TeamColumn team={match.away} side="away" />
         </div>
 
         {started &&
@@ -346,8 +413,6 @@ export function MatchDetailClient({
           })()}
       </div>
 
-      {clips && clips.clips.length > 0 && <ClipsHighlights data={clips} />}
-
       {inLiveWindow && (
         <a
           href={match.sbs?.live ?? SBS_HUB}
@@ -360,67 +425,9 @@ export function MatchDetailClient({
         </a>
       )}
 
-      <div className="flex gap-2">
-        {finished && (
-          <button
-            type="button"
-            onClick={() => toggleWatched(match.id)}
-            aria-pressed={isWatched}
-            className={
-              "flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors " +
-              (isWatched
-                ? "border-accent/40 bg-accent/10 text-accent"
-                : "border-edge text-zinc-400 hover:text-zinc-200")
-            }
-          >
-            <EyeIcon />
-            {isWatched ? "Watched" : "Mark watched"}
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={() => toggleFavourite(match.id)}
-          aria-pressed={isFavourite}
-          className={
-            "flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors " +
-            (isFavourite
-              ? "border-amber-400/40 bg-amber-400/10 text-amber-400"
-              : "border-edge text-zinc-400 hover:text-zinc-200")
-          }
-        >
-          <StarIcon filled={isFavourite} />
-          {isFavourite ? "Favourite" : "Add favourite"}
-        </button>
-      </div>
-
-      <div className="flex gap-1">
-        {(
-          [
-            ["stats", "Stats"],
-            ["events", "Events"],
-            ["lineups", "Lineups"],
-            ...(groupTable ? [["table", "Table"]] : []),
-            ["watch", "Watch"],
-          ] as Array<[DetailTab, string]>
-        ).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setTab(value)}
-            className={
-              "rounded-full px-3 py-1.5 text-sm font-medium transition-colors " +
-              (tab === value
-                ? "bg-accent/15 text-accent"
-                : "text-zinc-400 hover:text-zinc-200")
-            }
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
       {tab === "stats" && (
         <div className="space-y-4">
+          {clips && clips.clips.length > 0 && <ClipsHighlights data={clips} />}
           {finished && <HighlightsEmbed match={match} />}
           {summary.stats.length > 0 ? (
             <SpoilerCover matchId={match.id} label="Reveal stats">
@@ -484,6 +491,7 @@ export function MatchDetailClient({
 
       {tab === "watch" && (
         <div className="space-y-4">
+          {clips && clips.clips.length > 0 && <ClipsHighlights data={clips} />}
           {finished && <HighlightsEmbed match={match} />}
           <SbsButtons match={match} />
           {match.status === "scheduled" && !isInLiveWindow(match) && (
