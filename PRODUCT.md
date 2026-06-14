@@ -34,9 +34,9 @@ Tournament leaders in three sub-tabs: **Top scorers**, **Assists**, **Discipline
 
 ## Match page
 
-Score header (teams, flags, score, scorers with minutes, status or Melbourne kickoff, venue, shootout score when applicable) with **Follow team** buttons under each side. The live minute ticks smoothly (interpolated client-side between polls, since ESPN's clock only updates in chunks); stoppage and HT show verbatim. During the live window a prominent **Watch live on SBS** button sits right under the score. Then an **in-game Highlights rail** (see below), watched/favourite actions, and five pill sub-tabs:
+A sticky **sub-tab bar** (Stats / Events / Lineups / Table / Watch) sits at the very top, translucent with a thin mint border, so it's clear which tab you're on and the tabs stay reachable while scrolling. Below it the **score card**, consistent across every tab: teams, flags, score, scorers with minutes, status or Melbourne kickoff, venue, shootout score when applicable. A small **follow** star sits beside each flag, and **watched** (finished matches) and **favourite** icons tuck into the card's top-right corner. The live minute ticks smoothly (interpolated client-side between polls, since ESPN's clock only updates in chunks); stoppage and HT show verbatim. During the live window a prominent **Watch live on SBS** button sits right under the score on every tab. The five sub-tabs:
 
-1. **Stats** (landing tab): match stat bars: possession, shots, shots on target, corners, fouls, offsides, cards, saves, crosses, pass completion, with the leading side highlighted (plus the YouTube highlights embed for finished matches)
+1. **Stats** (landing tab): the in-game highlights rail on top during the match (replaced post-match by SBS's full YouTube highlights embed, no two highlight sets), then the match stat bars: possession, shots, shots on target, corners, fouls, offsides, cards, saves, crosses, pass completion, with the leading side highlighted
 2. **Events**: LiveScore-style timeline: goals with scorer, assister and running score, yellow/red cards, substitutions (on/off), HT and FT rows
 3. **Lineups**: both starting XIs plotted on a **pitch** (home top, away bottom) laid out from the real formation, numbered markers with surnames and per-player event icons (goal/cards/sub with minutes), above the full lineup list, which also shows the minute each substitute came on or off; "Lineups TBC, usually ~1hr before kickoff" until published
 4. **Table**: that match's group standings, both teams highlighted (group-stage matches only)
@@ -46,7 +46,7 @@ Live behaviour: score updates every 4 seconds; events, stats, lineups and clips 
 
 ## In-game highlights
 
-Per-match goal and key-moment clips, published by SBS during and after the match (the same feed LiveScore syndicates). They appear in a **Highlights rail** under the score with a LIVE badge while the game is on, refreshing as new clips drop. Tapping one opens a full-screen story-style player (vertical video) with prev/next edge buttons, swipe, and keyboard arrows; the hardware Back button closes it. Clips are plain MP4s played in our own player. The clips show SBS's own on-screen score, which is intended (you're watching to see the goals).
+Per-match goal and key-moment clips, published by SBS during and after the match (the same feed LiveScore syndicates). They appear in a **Highlights rail** on the Stats and Watch tabs with a LIVE badge while the game is on, refreshing as new clips drop. On the Stats tab the rail steps aside once SBS's full YouTube highlights video is embedded post-match (it stays on the Watch tab). Tapping one opens a full-screen story-style player (vertical video) with prev/next edge buttons, swipe, and keyboard arrows; the hardware Back button closes it. Clips are plain MP4s played in our own player. The clips show SBS's own on-screen score, which is intended (you're watching to see the goals).
 
 ## No spoilers
 
@@ -69,4 +69,4 @@ Invisible to visitors: a no-cookie beacon logs each page view (path, referrer, c
 
 ## Design
 
-Dark theme, mint accent, system font stack, mobile-first with desktop grids. Only images are team flags from ESPN's CDN and YouTube thumbnails inside embeds. No analytics, no cookies, no cookie banner needed.
+Dark theme, mint accent, system font stack, mobile-first with desktop grids. A darkened celebration photo (Irankunda's goal v Türkiye) sits fixed behind every page; content cards are opaque so legibility is unaffected. Images are that backdrop, team flags from ESPN's CDN, and YouTube thumbnails inside embeds. No analytics cookies, no cookie banner needed.

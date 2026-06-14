@@ -105,3 +105,11 @@ Group standings are now computed from finished match results instead of ESPN's s
 ## 2d296c4, 3c45a35 - Formation-accurate lineup pitch
 
 The pitch previously inferred each player's band from ESPN's coarse position code (only `G`/`D`/`M`/`F`), which collapsed every midfielder into one row (a 4-2-3-1's holding pair and attacking three rendered as a single line of five). ESPN.com instead lays players out from the formation string plus each player's `formationPlace` slot index, paired with formation templates baked into its frontend. We now do the same: single-midfield shapes from the coarse labels, stacked-midfield shapes (4-2-3-1, 3-4-2-1) from a per-formation template that encodes both each slot's band and its true left-to-right column (ESPN's slot order is neither line-ordered nor left-to-right by number), with the home side mirrored since it attacks downward. The old heuristic stays as a fallback for untemplated formations. Closer to ESPN/LiveScore but not yet a perfect match (see KNOWN_ISSUES.md).
+
+## 4053ea1, 3228a11 - Celebration backdrop
+
+A darkened photo of Irankunda's goal against Türkiye sits fixed behind every page (`PhotoBackground` in the root layout). A vertical-gradient overlay keeps it dark enough to read over, with the scorer visible through the middle band; content cards are opaque so readability is unaffected. Purely cosmetic.
+
+## 8be30a5, 57777ea - Match page layout
+
+The sub-tab pills moved above the score and became a sticky, translucent, mint-bordered bar, so it's clear which tab you're on and the tabs stay reachable while scrolling (they used to sit at the bottom, where you couldn't tell it was a stats page). Mark-watched and favourite collapsed into icons in the score card's top-right corner, and follow-team became a single star beside each flag with no wording, which shrinks the card so the stats sit higher. The in-game clip reel now shows only on the Stats and Watch tabs, and on Stats it yields to SBS's full YouTube highlights embed once that lands (no two highlight sets). The Watch-live SBS button stays prominent on every tab.

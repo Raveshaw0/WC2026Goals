@@ -28,6 +28,10 @@ Tables are computed from results (ESPN's standings feed lags full time badly). T
 
 Hidden scores are rendered then covered by an opaque overlay (so the dissolve works), meaning the number exists in the DOM, view-source would reveal it. Fine for a casual "don't show me the result" feature, not a security boundary. The pre-paint layout effect prevents the on-screen flash for normal navigation.
 
+## Sticky tab bar offset is a hardcoded number
+
+The match-page sub-tab bar uses `sticky top-20` to pin just under the site header. That 80px is a hardcoded match for the header's height; if the header's content or padding changes, the offset needs updating (too small overlaps the header, too large leaves a gap). Purely cosmetic.
+
 ## Issue reports require RESEND_API_KEY
 
 The "Something is broken" button posts to `/api/report`, which emails alexanderlukic84@gmail.com via a dedicated Resend account (sending from onboarding@resend.dev to the account's own inbox needs no domain verification; override with REPORT_TO_EMAIL / REPORT_FROM_EMAIL if a domain is verified later). Without `RESEND_API_KEY` set, the endpoint returns 503 and the UI shows "Could not send".

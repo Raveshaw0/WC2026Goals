@@ -110,6 +110,8 @@ Caveat: uniqueness is per-browser-localStorage, so cleared storage, incognito, o
 - `useBackToClose` (used by the clip player and YouTube modal) pushes a throwaway history entry so the hardware Back button closes the overlay instead of navigating; closing via the UI pops the entry back off
 - Tailwind `future.hoverOnlyWhenSupported` plus transparent `-webkit-tap-highlight-color`: without these, mobile taps leave buttons stuck in hover state
 - Countdown and live-minute text render client-side after mount only, so server HTML never disagrees with the client clock (hydration); the no-spoilers flag uses the same pre-paint pattern
+- A darkened celebration photo (`PhotoBackground`) is fixed behind every page from the root layout at `-z-10`; the body paints its solid background first, so the photo shows above it and below content, and opaque cards keep readability independent of it
+- The match-page sub-tab bar is `sticky top-20 z-10`; the offset is a hardcoded match for the sticky header's ~80px height and sits below the header's `z-20`
 - The only external images are ESPN flags, SBS clip thumbnails, and YouTube embeds
 
 ## Open Graph share card
