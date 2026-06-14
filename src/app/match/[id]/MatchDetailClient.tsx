@@ -423,7 +423,9 @@ export function MatchDetailClient({
         <div className="space-y-4">
           {finished && <HighlightsEmbed match={match} />}
           {summary.stats.length > 0 ? (
-            <MatchStats stats={summary.stats} />
+            <SpoilerCover matchId={match.id} label="Reveal stats">
+              <MatchStats stats={summary.stats} />
+            </SpoilerCover>
           ) : (
             !(finished && match.sbs?.ytHighlightsId) && (
               <TabPlaceholder
