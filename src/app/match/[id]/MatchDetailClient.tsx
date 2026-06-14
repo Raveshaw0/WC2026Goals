@@ -259,6 +259,9 @@ export function MatchDetailClient({
     match.home.shootoutScore !== null && match.away.shootoutScore !== null;
   // Live window also covers the few minutes either side of kickoff.
   const inLiveWindow = isInLiveWindow(match);
+  // Once SBS's full highlights video is embedded (post-match), it supersedes
+  // the in-game clip reel on the Stats tab, so we don't show two sets there.
+  const hasYoutubeHighlights = finished && Boolean(match.sbs?.ytHighlightsId);
 
   return (
     <div className="space-y-4">
@@ -427,7 +430,9 @@ export function MatchDetailClient({
 
       {tab === "stats" && (
         <div className="space-y-4">
-          {clips && clips.clips.length > 0 && <ClipsHighlights data={clips} />}
+          {!hasYoutubeHighlights &&
+            clips &&
+            clips.clips.length > 0 && <ClipsHighlights data={clips} />}
           {finished && <HighlightsEmbed match={match} />}
           {summary.stats.length > 0 ? (
             <SpoilerCover matchId={match.id} label="Reveal stats">
