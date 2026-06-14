@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { useBackToClose } from "@/hooks/useBackToClose";
 import type { Clip, MatchClips } from "@/lib/clips";
 
 // In-game highlight clips (SBS Blaze stories): a horizontal rail of vertical
@@ -28,6 +29,7 @@ function ClipPlayer({
 }) {
   const [i, setI] = useState(startIndex);
   const touch = useRef<{ x: number; y: number } | null>(null);
+  useBackToClose(onClose);
 
   const go = (delta: number) =>
     setI((n) => Math.min(Math.max(n + delta, 0), clips.length - 1));

@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 
+import { useBackToClose } from "@/hooks/useBackToClose";
+
 // Fullscreen-overlay YouTube player so highlights play without leaving the
 // app. youtube-nocookie + autoplay; backdrop tap or Escape closes. Rendered
 // through a portal: watched cards are dimmed with opacity, which creates a
@@ -17,6 +19,7 @@ export function HighlightsModal({
   title: string;
   onClose: () => void;
 }) {
+  useBackToClose(onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
