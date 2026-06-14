@@ -452,11 +452,107 @@ export async function fetchMatchSummary(
 // catches up once a whole matchday finishes), so the table is computed from
 // the scoreboard results instead — the same "don't trust ESPN's aggregates"
 // stance used for leaders. Only finished group-stage matches count; an
-// in-progress match doesn't move the table. Tiebreak: points, goal
-// difference, goals for, then name. FIFA's head-to-head and fair-play
-// tiebreakers aren't replicated (rare in practice, not worth the complexity
-// here), so ordering can differ from the official table only among teams
-// level on all of points, GD and GF.
+// in-progress match doesn't move the table.
+//
+// Tiebreakers follow the OFFICIAL 2026 World Cup order, which changed from
+// 2022: head-to-head is applied BEFORE overall goal difference. For teams
+// level on points, in sequence:
+//   1. head-to-head points   (matches played among the tied teams only)
+//   2. head-to-head goal difference
+//   3. head-to-head goals scored
+//   4. overall goal difference
+//   5. overall goals scored
+//   6. disciplinary (cards) then FIFA World Ranking
+// We don't have card or FIFA-ranking data, so step 6 falls back to team name
+// purely for determinism — only reachable if two teams are identical through
+// step 5, which is vanishingly rare. When head-to-head separates only part of
+// a 3+ way tie, it's re-applied among the teams still level (the recursion
+// below), matching FIFA's procedure.
+
+interface H2H {
+  pts: number;
+  gd: number;
+  gf: number;
+}
+
+// Mini-table built from only the matches played between the given teams.
+function headToHead(rows: StandingRow[], matches: Match[]): Map<string, H2H> {
+  const ids = new Set(rows.map((r) => r.teamId));
+  const table = new Map<string, H2H>();
+  for (const r of rows) table.set(r.teamId, { pts: 0, gd: 0, gf: 0 });
+  for (const m of matches) {
+    if (m.round !== "group-stage" || m.status !== "finished") continue;
+    if (!ids.has(m.home.id) || !ids.has(m.away.id)) continue;
+    const hs = m.home.score;
+    const as = m.away.score;
+    if (hs === null || as === null) continue;
+    const home = table.get(m.home.id)!;
+    const away = table.get(m.away.id)!;
+    home.gf += hs;
+    home.gd += hs - as;
+    away.gf += as;
+    away.gd += as - hs;
+    if (hs > as) home.pts += 3;
+    else if (hs < as) away.pts += 3;
+    else {
+      home.pts += 1;
+      away.pts += 1;
+    }
+  }
+  return table;
+}
+
+// Teams level on points that head-to-head couldn't split: overall GD, overall
+// goals, then name (the deterministic stand-in for cards / FIFA ranking).
+function orderByOverall(run: StandingRow[]): StandingRow[] {
+  return run
+    .slice()
+    .sort(
+      (a, b) =>
+        b.goalDiff - a.goalDiff ||
+        b.goalsFor - a.goalsFor ||
+        a.name.localeCompare(b.name)
+    );
+}
+
+// Order a cluster of teams level on points via head-to-head, recursively
+// re-applying it to any subset that stays level after the first pass.
+function orderTiedOnPoints(
+  cluster: StandingRow[],
+  matches: Match[]
+): StandingRow[] {
+  if (cluster.length <= 1) return cluster;
+  const h2h = headToHead(cluster, matches);
+  const sorted = cluster.slice().sort((a, b) => {
+    const A = h2h.get(a.teamId)!;
+    const B = h2h.get(b.teamId)!;
+    return B.pts - A.pts || B.gd - A.gd || B.gf - A.gf;
+  });
+  const out: StandingRow[] = [];
+  let i = 0;
+  while (i < sorted.length) {
+    const A = h2h.get(sorted[i].teamId)!;
+    let j = i + 1;
+    while (j < sorted.length) {
+      const B = h2h.get(sorted[j].teamId)!;
+      if (B.pts !== A.pts || B.gd !== A.gd || B.gf !== A.gf) break;
+      j++;
+    }
+    const run = sorted.slice(i, j);
+    if (run.length === 1) {
+      out.push(run[0]);
+    } else if (run.length === cluster.length) {
+      // Head-to-head separated no one — move on to the overall criteria.
+      out.push(...orderByOverall(run));
+    } else {
+      // Partially separated — re-apply head-to-head among the teams still level.
+      out.push(...orderTiedOnPoints(run, matches));
+    }
+    i = j;
+  }
+  return out;
+}
+
 function computeStandings(matches: Match[]): GroupStanding[] {
   const byGroup = new Map<string, Map<string, StandingRow>>();
   const ensure = (group: string, side: TeamSide): StandingRow => {
@@ -522,15 +618,26 @@ function computeStandings(matches: Match[]): GroupStanding[] {
       r.goalDiff = r.goalsFor - r.goalsAgainst;
       r.points = r.wins * 3 + r.draws;
     }
-    rows.sort(
-      (a, b) =>
-        b.points - a.points ||
-        b.goalDiff - a.goalDiff ||
-        b.goalsFor - a.goalsFor ||
-        a.name.localeCompare(b.name)
-    );
-    rows.forEach((r, i) => (r.rank = i + 1));
-    groups.push({ group: letter, rows });
+    // Sort by points, then break each level-on-points cluster with the 2026
+    // tiebreaker chain (head-to-head before overall goal difference).
+    const byPoints = rows.slice().sort((a, b) => b.points - a.points);
+    const ordered: StandingRow[] = [];
+    let i = 0;
+    while (i < byPoints.length) {
+      let j = i + 1;
+      while (j < byPoints.length && byPoints[j].points === byPoints[i].points) {
+        j++;
+      }
+      const cluster = byPoints.slice(i, j);
+      ordered.push(
+        ...(cluster.length > 1
+          ? orderTiedOnPoints(cluster, matches)
+          : cluster)
+      );
+      i = j;
+    }
+    ordered.forEach((r, idx) => (r.rank = idx + 1));
+    groups.push({ group: letter, rows: ordered });
   }
   groups.sort((a, b) => a.group.localeCompare(b.group));
   return groups;
