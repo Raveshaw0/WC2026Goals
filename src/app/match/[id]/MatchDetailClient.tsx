@@ -446,7 +446,11 @@ export function MatchDetailClient({
           return (
             <div className="space-y-4">
               {homeLine && awayLine && (
-                <LineupPitch home={homeLine} away={awayLine} />
+                <LineupPitch
+                  home={homeLine}
+                  away={awayLine}
+                  events={summary.events}
+                />
               )}
               <Lineups lineups={summary.lineups} />
             </div>

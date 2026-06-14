@@ -48,7 +48,7 @@ Match pages gained a Table tab showing that group's standings with the two compe
 
 ## Lineup pitch view
 
-The Lineups tab now plots both starting XIs on a pitch (home top attacking down, away bottom attacking up), above the existing list. Positions are derived from ESPN's position abbreviations (G/RB/CD-L/AM-R/F...), which reconstruct the formation shape; formationPlace is only a tiebreak. Numbered markers (mint home, sky away) with surnames, drawn markings, formation labels. No player photos needed.
+The Lineups tab now plots both starting XIs on a pitch (home top attacking down, away bottom attacking up), above the existing list. Positions are derived from ESPN's position abbreviations (G/RB/CD-L/AM-R/F...), which reconstruct the formation shape; formationPlace is only a tiebreak. Numbered markers (mint home, sky away) with surnames, drawn markings, formation labels. No player photos needed. Each marker carries a compact event caption matched from the events feed: ball + minute for goals (og/p flagged), yellow/red card chips + minute, and a red down-arrow + minute for players subbed off (dimmed). Tells the match story at a glance without clutter.
 
 ## In-game highlight clips (during the match)
 
