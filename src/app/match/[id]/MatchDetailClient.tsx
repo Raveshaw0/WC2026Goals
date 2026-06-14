@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { ClipsHighlights } from "@/components/ClipsHighlights";
 import { EventsTimeline } from "@/components/EventsTimeline";
 import { GroupTable } from "@/components/GroupTable";
 import { Lineups } from "@/components/Lineups";
@@ -10,6 +11,7 @@ import { MatchStats } from "@/components/MatchStats";
 import { SbsButtons } from "@/components/SbsButtons";
 import { useLiveMatches } from "@/hooks/useLiveMatches";
 import { useUserState } from "@/hooks/useUserState";
+import type { MatchClips } from "@/lib/clips";
 import { isInLiveWindow, liveWindowFor } from "@/lib/liveWindow";
 import { melbourneDateTimeShort } from "@/lib/time";
 import type { GroupStanding, Match, MatchSummary, TeamSide } from "@/lib/types";
@@ -57,9 +59,16 @@ function TeamColumn({ team }: { team: TeamSide }) {
 
 // Poll the summary (events, stats, lineups) every 60s from 75 minutes before
 // kickoff (lineups publish ~1hr out) until the live window closes. The score
-// itself rides the faster 4s /api/live poll via useLiveMatches.
-function useSummaryPolling(match: Match, initial: MatchSummary): MatchSummary {
+// itself rides the faster 4s /api/live poll via useLiveMatches. Also returns
+// in-game highlight clips, which refresh on the same cadence (new goal clips
+// appear during the match).
+function useSummaryPolling(
+  match: Match,
+  initial: MatchSummary,
+  initialClips: MatchClips | null
+): { summary: MatchSummary; clips: MatchClips | null } {
   const [summary, setSummary] = useState(initial);
+  const [clips, setClips] = useState(initialClips);
   useEffect(() => {
     const shouldPoll = () => {
       if (match.status === "finished" || match.status === "postponed") {
@@ -78,6 +87,9 @@ function useSummaryPolling(match: Match, initial: MatchSummary): MatchSummary {
         if (res.ok) {
           const data = await res.json();
           if (data.summary) setSummary(data.summary);
+          // Only replace clips when the feed has some, so a transient empty
+          // feed never wipes clips already on screen.
+          if (data.clips && data.clips.clips?.length) setClips(data.clips);
         }
       } catch {
         // transient; next tick retries
@@ -108,7 +120,7 @@ function useSummaryPolling(match: Match, initial: MatchSummary): MatchSummary {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match.id, match.status]);
-  return summary;
+  return { summary, clips };
 }
 
 // Pseudo-live match minute. ESPN's clock only changes in ~minute chunks even
@@ -211,17 +223,19 @@ export function MatchDetailClient({
   initialMatch,
   initialSummary,
   groupTable,
+  initialClips,
 }: {
   initialMatch: Match;
   initialSummary: MatchSummary;
   groupTable: GroupStanding | null;
+  initialClips: MatchClips | null;
 }) {
   const [tab, setTab] = useState<DetailTab>("stats");
   // Reuse the smart polling hook with a single match: it polls at 4s only
   // inside this match's live window, 5min otherwise, and pauses when hidden.
   const { matches } = useLiveMatches([initialMatch]);
   const match = matches[0] ?? initialMatch;
-  const summary = useSummaryPolling(match, initialSummary);
+  const { summary, clips } = useSummaryPolling(match, initialSummary, initialClips);
   const liveMinute = useLiveMinute(match);
   const { watched, favourites, toggleWatched, toggleFavourite } =
     useUserState();
@@ -320,6 +334,8 @@ export function MatchDetailClient({
             );
           })()}
       </div>
+
+      {clips && clips.clips.length > 0 && <ClipsHighlights data={clips} />}
 
       {inLiveWindow && (
         <a

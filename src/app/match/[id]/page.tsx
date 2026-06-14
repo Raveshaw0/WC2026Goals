@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { StaleBanner } from "@/components/StaleBanner";
+import { clipsForMatch } from "@/lib/clips";
 import { getSbsLink } from "@/lib/db";
 import {
   fetchAllMatches,
@@ -24,10 +25,11 @@ export default async function MatchPage({
   const match = all.data?.find((m) => m.id === id);
   if (!match) notFound();
 
-  const [summary, sbs, standings] = await Promise.all([
+  const [summary, sbs, standings, clips] = await Promise.all([
     fetchMatchSummary(id, match.home.id, match.status === "finished"),
     getSbsLink(id),
     match.group ? fetchGroupStandings() : Promise.resolve(null),
+    clipsForMatch(match),
   ]);
   const groupTable =
     standings?.data?.find((g) => g.group === match.group) ?? null;
@@ -49,6 +51,7 @@ export default async function MatchPage({
         initialMatch={match}
         initialSummary={summary.data ?? { lineups: [], events: [], stats: [] }}
         groupTable={groupTable}
+        initialClips={clips}
       />
     </div>
   );

@@ -46,6 +46,10 @@ README, refreshed PRODUCT, new ARCHITECTURE and this changelog.
 
 Match pages gained a Table tab showing that group's standings with the two competing teams highlighted, via a GroupTable component shared with the groups page. Knockout matches (no group) skip the tab.
 
+## In-game highlight clips (during the match)
+
+Per-match goal/moment clips that appear during a live game, the thing LiveScore syndicates. Traced to SBS's "Blaze" stories platform (`blazesdk-prod-cdn.clipro.tv`, public key, label `aa-sbs-aus-wc26`); each story is a match with vertical MP4 clips hosted on sbs.com.au (no DRM). `src/lib/clips.ts` fetches the feed (60s revalidate), maps stories to fixtures by team aliases + match date, and exposes per-match clips. A prominent "Highlights" rail (with a LIVE badge) sits under the score on the match page and plays clips in our own story-style `<video>` popup, refreshing on the 60s match poll. The SBS editorial GraphQL API (`cms.sbs.com.au/graphql/delivery/sbscontentapi`) was investigated first and ruled out (only carries news/feature videos, no goal clips).
+
 ## Private visitor analytics
 
 Lightweight first-party analytics, no cookies, no consent banner, nothing user-facing. A client beacon (`Beacon.tsx`, anonymous per-browser id, counts humans not bots) posts each view to `/api/track`, which writes to a shared `page_views` table (a `site` column separates wc26 from the landing site, which reuses the same setup and database). A secret `/api/insights?key=...` returns JSON and `/insights?key=...` renders a human dashboard (total / unique / returning / from-LinkedIn / 24h, per-day chart, top referrers / countries / pages). Returning = a device seen on 2+ distinct days. Gated by `INSIGHTS_KEY`; nothing links to either, wrong/absent key 404s the page and 403s the API.
