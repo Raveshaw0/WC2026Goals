@@ -9,6 +9,14 @@ import type { Clip, MatchClips } from "@/lib/clips";
 // thumbnails that open a fullscreen story-style player. Clips are plain MP4s
 // played in our own <video> (auto-advance to the next, tap to dismiss).
 
+function Chevron({ dir }: { dir: "left" | "right" }) {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {dir === "left" ? <path d="M15 18l-6-6 6-6" /> : <path d="M9 18l6-6-6-6" />}
+    </svg>
+  );
+}
+
 function ClipPlayer({
   clips,
   startIndex,
@@ -19,13 +27,16 @@ function ClipPlayer({
   onClose: () => void;
 }) {
   const [i, setI] = useState(startIndex);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const touch = useRef<{ x: number; y: number } | null>(null);
+
+  const go = (delta: number) =>
+    setI((n) => Math.min(Math.max(n + delta, 0), clips.length - 1));
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
-      if (e.key === "ArrowRight") setI((n) => Math.min(n + 1, clips.length - 1));
-      if (e.key === "ArrowLeft") setI((n) => Math.max(n - 1, 0));
+      if (e.key === "ArrowRight") go(1);
+      if (e.key === "ArrowLeft") go(-1);
     };
     document.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
@@ -33,22 +44,45 @@ function ClipPlayer({
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onClose, clips.length]);
 
   const clip = clips[i];
-  const next = () =>
-    setI((n) => (n + 1 < clips.length ? n + 1 : (onClose(), n)));
+  // Auto-advance to the next clip when one finishes; close after the last.
+  const onEnded = () => setI((n) => (n + 1 < clips.length ? n + 1 : (onClose(), n)));
+
+  // Swipe: left/right to navigate, down to dismiss. Ignore gestures starting
+  // in the bottom strip so they don't fight the native video scrubber.
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touch.current =
+      t.clientY > window.innerHeight - 80 ? null : { x: t.clientX, y: t.clientY };
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (!touch.current) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touch.current.x;
+    const dy = t.clientY - touch.current.y;
+    touch.current = null;
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) go(dx < 0 ? 1 : -1);
+    else if (dy > 70 && dy > Math.abs(dx)) onClose();
+  };
+
+  const edgeBtn =
+    "absolute top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 backdrop-blur transition-colors hover:bg-white/25";
 
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
       onClick={onClose}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
       role="dialog"
       aria-modal="true"
       aria-label="Match highlights"
     >
       {/* progress segments */}
-      <div className="absolute left-0 right-0 top-0 z-10 flex gap-1 p-2">
+      <div className="absolute left-0 right-0 top-0 z-20 flex gap-1 p-2">
         {clips.map((_, idx) => (
           <span
             key={idx}
@@ -63,49 +97,47 @@ function ClipPlayer({
         type="button"
         onClick={onClose}
         aria-label="Close"
-        className="absolute right-3 top-4 z-10 rounded-full bg-white/15 px-3 py-1 text-sm text-white"
+        className="absolute right-3 top-4 z-20 rounded-full bg-white/15 px-3 py-1 text-sm text-white"
       >
         Close
       </button>
 
       <video
-        ref={videoRef}
         key={clip.id}
         src={clip.mp4}
         poster={clip.poster ?? undefined}
         autoPlay
         playsInline
         controls
-        onEnded={next}
+        onEnded={onEnded}
         onClick={(e) => e.stopPropagation()}
         className="max-h-[88vh] w-auto max-w-full rounded-xl bg-black"
       />
 
-      {/* tap zones for prev/next */}
       {i > 0 && (
         <button
           type="button"
-          aria-label="Previous"
+          aria-label="Previous clip"
           onClick={(e) => {
             e.stopPropagation();
-            setI((n) => Math.max(n - 1, 0));
+            go(-1);
           }}
-          className="absolute bottom-4 left-4 z-10 rounded-full bg-white/15 px-3 py-1.5 text-sm text-white"
+          className={edgeBtn + " left-2 sm:left-4"}
         >
-          Prev
+          <Chevron dir="left" />
         </button>
       )}
       {i < clips.length - 1 && (
         <button
           type="button"
-          aria-label="Next"
+          aria-label="Next clip"
           onClick={(e) => {
             e.stopPropagation();
-            setI((n) => Math.min(n + 1, clips.length - 1));
+            go(1);
           }}
-          className="absolute bottom-4 right-4 z-10 rounded-full bg-white/15 px-3 py-1.5 text-sm text-white"
+          className={edgeBtn + " right-2 sm:right-4"}
         >
-          Next
+          <Chevron dir="right" />
         </button>
       )}
     </div>,
