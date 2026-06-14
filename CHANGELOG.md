@@ -46,6 +46,10 @@ README, refreshed PRODUCT, new ARCHITECTURE and this changelog.
 
 Match pages gained a Table tab showing that group's standings with the two competing teams highlighted, via a GroupTable component shared with the groups page. Knockout matches (no group) skip the tab.
 
+## No-spoilers mode
+
+A "No spoilers" toggle in the header (default off, persisted locally) hides all of our own results behind tap-to-reveal covers: match-card scores, the match detail score and scorers, the events timeline, goal markers on the lineup pitch, group tables and the stats leaderboards. Reveal is per-match (one tap unlocks a match's score + scorers + events + pitch goals together) or per-section (tables, stats), with a dissolve animation. Status labels (LIVE/HT/FT/kickoff) stay visible. Highlights clips are deliberately left untouched, the whole point is watching them to see the goals before knowing the final. No score flashes on load: the preference is read in a pre-paint layout effect. Also: tapping the WC26 logo refreshes when already on the home view, navigates home otherwise.
+
 ## Lineup pitch view
 
 The Lineups tab now plots both starting XIs on a pitch (home top attacking down, away bottom attacking up), above the existing list. Positions are derived from ESPN's position abbreviations (G/RB/CD-L/AM-R/F...), which reconstruct the formation shape; formationPlace is only a tiebreak. Numbered markers (mint home, sky away) with surnames, drawn markings, formation labels. No player photos needed. Each marker carries a compact event caption matched from the events feed: ball + minute for goals (og/p flagged), yellow/red card chips + minute, and a red down-arrow + minute for players subbed off (dimmed). Tells the match story at a glance without clutter.

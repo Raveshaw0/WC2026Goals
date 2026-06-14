@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { HighlightsModal } from "@/components/HighlightsModal";
+import { SpoilerCover } from "@/components/SpoilerCover";
 import { useUserState } from "@/hooks/useUserState";
 import { melbourneTime } from "@/lib/time";
 import type { Match, TeamSide } from "@/lib/types";
@@ -102,19 +103,21 @@ function TeamRow({ team, match }: { team: TeamSide; match: Match }) {
         {team.name}
       </span>
       {started && (
-        <span
-          className={
-            "text-base font-bold tabular-nums " +
-            (team.winner ? "text-zinc-100" : "text-zinc-400")
-          }
-        >
-          {team.score ?? "-"}
-          {team.shootoutScore !== null && (
-            <span className="ml-1 text-xs font-medium text-zinc-500">
-              ({team.shootoutScore})
-            </span>
-          )}
-        </span>
+        <SpoilerCover matchId={match.id} label="" rounded="rounded-md">
+          <span
+            className={
+              "text-base font-bold tabular-nums " +
+              (team.winner ? "text-zinc-100" : "text-zinc-400")
+            }
+          >
+            {team.score ?? "-"}
+            {team.shootoutScore !== null && (
+              <span className="ml-1 text-xs font-medium text-zinc-500">
+                ({team.shootoutScore})
+              </span>
+            )}
+          </span>
+        </SpoilerCover>
       )}
     </div>
   );

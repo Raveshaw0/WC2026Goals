@@ -249,10 +249,12 @@ export function LineupPitch({
   home,
   away,
   events,
+  hideGoals = false,
 }: {
   home: TeamLineup;
   away: TeamLineup;
   events: MatchEvent[];
+  hideGoals?: boolean;
 }) {
   const homeXI = home.starters;
   const awayXI = away.starters;
@@ -261,6 +263,8 @@ export function LineupPitch({
   const homePlot = layout(homeXI);
   const awayPlot = layout(awayXI);
   const evMap = buildEventMap(events);
+  // No-spoilers: drop goal markers (keep cards/subs, which aren't results).
+  if (hideGoals) evMap.forEach((e) => (e.goals = []));
 
   // Keep each team's deepest line back from the halfway line so the two
   // attacking rows never collide and there's room for captions in between.

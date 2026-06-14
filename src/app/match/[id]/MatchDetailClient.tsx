@@ -10,7 +10,9 @@ import { Lineups } from "@/components/Lineups";
 import { EyeIcon, Flag, StarIcon } from "@/components/MatchCard";
 import { MatchStats } from "@/components/MatchStats";
 import { SbsButtons } from "@/components/SbsButtons";
+import { SpoilerCover } from "@/components/SpoilerCover";
 import { useLiveMatches } from "@/hooks/useLiveMatches";
+import { useSpoiler } from "@/hooks/useSpoiler";
 import { useUserState } from "@/hooks/useUserState";
 import type { MatchClips } from "@/lib/clips";
 import { isInLiveWindow, liveWindowFor } from "@/lib/liveWindow";
@@ -240,6 +242,8 @@ export function MatchDetailClient({
   const liveMinute = useLiveMinute(match);
   const { watched, favourites, toggleWatched, toggleFavourite } =
     useUserState();
+  const spoiler = useSpoiler();
+  const matchHidden = spoiler.matchHidden(match.id);
   const isWatched = watched.has(match.id);
   const isFavourite = favourites.has(match.id);
 
@@ -269,16 +273,18 @@ export function MatchDetailClient({
           <div className="flex flex-col items-center pt-2">
             {started ? (
               <>
-                <div className="text-3xl font-bold tabular-nums text-zinc-100">
-                  {match.home.score ?? "-"}
-                  <span className="px-1 text-zinc-600">:</span>
-                  {match.away.score ?? "-"}
-                </div>
-                {shootout && (
-                  <div className="text-xs text-zinc-400">
-                    ({match.home.shootoutScore}-{match.away.shootoutScore} pens)
+                <SpoilerCover matchId={match.id} label="" rounded="rounded-lg">
+                  <div className="text-3xl font-bold tabular-nums text-zinc-100">
+                    {match.home.score ?? "-"}
+                    <span className="px-1 text-zinc-600">:</span>
+                    {match.away.score ?? "-"}
                   </div>
-                )}
+                  {shootout && (
+                    <div className="text-xs text-zinc-400">
+                      ({match.home.shootoutScore}-{match.away.shootoutScore} pens)
+                    </div>
+                  )}
+                </SpoilerCover>
                 <div className="mt-1">
                   {match.status === "live" ? (
                     <span className="flex items-center gap-1.5 text-xs font-semibold text-live">
@@ -309,28 +315,32 @@ export function MatchDetailClient({
               match.goals.filter((g) => !g.shootout && g.teamId === match.away.id)
             );
             return (
-              <div className="mt-4 flex items-start gap-2 border-t border-edge/60 pt-3 text-xs text-zinc-400">
-                <ul className="flex-1 space-y-0.5">
-                  {homeLines.map((l) => (
-                    <li key={l.scorer}>
-                      <span className="text-zinc-300">{l.scorer}</span>{" "}
-                      <span className="tabular-nums text-zinc-500">
-                        {l.minutes}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                <BallIcon className="mt-0.5 shrink-0" />
-                <ul className="flex-1 space-y-0.5 text-right">
-                  {awayLines.map((l) => (
-                    <li key={l.scorer}>
-                      <span className="tabular-nums text-zinc-500">
-                        {l.minutes}
-                      </span>{" "}
-                      <span className="text-zinc-300">{l.scorer}</span>
-                    </li>
-                  ))}
-                </ul>
+              <div className="mt-4 border-t border-edge/60 pt-3">
+                <SpoilerCover matchId={match.id} label="Reveal scorers">
+                  <div className="flex items-start gap-2 text-xs text-zinc-400">
+                    <ul className="flex-1 space-y-0.5">
+                      {homeLines.map((l) => (
+                        <li key={l.scorer}>
+                          <span className="text-zinc-300">{l.scorer}</span>{" "}
+                          <span className="tabular-nums text-zinc-500">
+                            {l.minutes}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <BallIcon className="mt-0.5 shrink-0" />
+                    <ul className="flex-1 space-y-0.5 text-right">
+                      {awayLines.map((l) => (
+                        <li key={l.scorer}>
+                          <span className="tabular-nums text-zinc-500">
+                            {l.minutes}
+                          </span>{" "}
+                          <span className="text-zinc-300">{l.scorer}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </SpoilerCover>
               </div>
             );
           })()}
@@ -430,7 +440,9 @@ export function MatchDetailClient({
 
       {tab === "events" &&
         (summary.events.length > 0 ? (
-          <EventsTimeline events={summary.events} match={match} />
+          <SpoilerCover matchId={match.id} label="Reveal events">
+            <EventsTimeline events={summary.events} match={match} />
+          </SpoilerCover>
         ) : (
           <TabPlaceholder text="Events appear once the match kicks off" />
         ))}
@@ -450,6 +462,7 @@ export function MatchDetailClient({
                   home={homeLine}
                   away={awayLine}
                   events={summary.events}
+                  hideGoals={matchHidden}
                 />
               )}
               <Lineups lineups={summary.lineups} />
@@ -458,11 +471,13 @@ export function MatchDetailClient({
         })()}
 
       {tab === "table" && groupTable && (
-        <GroupTable
-          group={groupTable.group}
-          rows={groupTable.rows}
-          highlightTeamIds={[match.home.id, match.away.id]}
-        />
+        <SpoilerCover sectionKey="tables" label="Reveal table">
+          <GroupTable
+            group={groupTable.group}
+            rows={groupTable.rows}
+            highlightTeamIds={[match.home.id, match.away.id]}
+          />
+        </SpoilerCover>
       )}
 
       {tab === "watch" && (

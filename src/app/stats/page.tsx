@@ -1,3 +1,4 @@
+import { SpoilerCover } from "@/components/SpoilerCover";
 import { fetchLeaders } from "@/lib/espn";
 
 import { StatsTabs } from "./StatsTabs";
@@ -13,7 +14,9 @@ export default async function StatsPage() {
         Tournament stats
       </h1>
       {result.data ? (
-        <StatsTabs leaders={result.data} />
+        <SpoilerCover sectionKey="stats" label="Reveal stats" rounded="rounded-2xl">
+          <StatsTabs leaders={result.data} />
+        </SpoilerCover>
       ) : (
         <div className="rounded-2xl border border-edge bg-card px-4 py-8 text-center text-sm text-zinc-400">
           Stats unavailable right now.

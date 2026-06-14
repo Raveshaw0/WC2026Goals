@@ -1,4 +1,5 @@
 import { GroupTable } from "@/components/GroupTable";
+import { SpoilerCover } from "@/components/SpoilerCover";
 import { StaleBanner } from "@/components/StaleBanner";
 import { fetchGroupStandings } from "@/lib/espn";
 
@@ -17,11 +18,13 @@ export default async function GroupsPage() {
           Standings unavailable right now.
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {groups.map((g) => (
-            <GroupTable key={g.group} group={g.group} rows={g.rows} />
-          ))}
-        </div>
+        <SpoilerCover sectionKey="tables" label="Reveal tables" rounded="rounded-2xl">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {groups.map((g) => (
+              <GroupTable key={g.group} group={g.group} rows={g.rows} />
+            ))}
+          </div>
+        </SpoilerCover>
       )}
     </div>
   );
