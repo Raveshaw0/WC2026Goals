@@ -15,10 +15,10 @@ How WC26 Tracker works underneath. For what it does, see [PRODUCT.md](PRODUCT.md
 
 | Endpoint | Used for | Revalidate |
 |---|---|---|
-| `scoreboard?dates=20260610-20260720&limit=200` | All 104 matches, scores, status, goal/card details | 300s |
+| `scoreboard?dates=20260610-20260720&limit=200` | All 104 matches, scores, status, goal/card details; also the source the group tables are computed from | 60s |
 | `scoreboard?dates=<rolling 3-day UTC window>` | Live polling source | 4s |
 | `summary?event=ID` | Lineups, key events (timeline + assists), boxscore stats | 30s live, 86400s finished (immutable) |
-| `apis/v2/.../standings` | Group letters + group tables (note: `apis/v2`, not `apis/site/v2`) | 300s |
+| `apis/v2/.../standings` | Group **letters** only (team id -> group letter; note: `apis/v2`, not `apis/site/v2`) | 3600s |
 
 Mapping notes learned the hard way:
 
@@ -30,6 +30,12 @@ Mapping notes learned the hard way:
 ### Tournament leaders are computed, not fetched
 
 No ESPN leaders endpoint works for `fifa.world` (`statistics/byathlete` returns an empty shell). Instead: scorers and discipline tallies come from the one cached scoreboard call (near-live), assists from per-match summary participant pairs. Finished summaries cache for a day (events are immutable), so the cost amortises to nothing. Output was validated identical to ESPN's own published stats page.
+
+### Group tables are computed, not fetched
+
+ESPN's standings endpoint lags full time by many minutes (it can show teams on zero played long after the final whistle, and sometimes only catches up once a whole matchday finishes). So the tables are computed in `computeStandings()` from the finished group-stage results in the one scoreboard call, the same "don't trust ESPN's aggregates" stance as the leaders. Only finished matches count; an in-progress game never moves the table. The standings endpoint is still fetched once an hour, but only to map team id to group letter.
+
+Tiebreakers follow the **official 2026** order, which reversed from 2022: for teams level on points it is head-to-head (points, then goal difference, then goals among the tied teams) **before** overall goal difference, then overall goals. Head-to-head is re-applied recursively to any subset still level after a partial split. The last two official steps (disciplinary score, then FIFA ranking) need data we don't have, so they fall back to team name for determinism, reachable only when two teams are identical through overall goals. `/groups` renders dynamically, so the table reflects a result within about a minute of full time.
 
 ### SBS catalogue API (per-match watch links)
 
@@ -57,12 +63,12 @@ Live window = kickoff minus 5 minutes to kickoff plus 150 minutes (180 for knock
 
 - Schedule page: `/api/live` every 4s while any window is open, else every 5 minutes; `visibilitychange` stops polling entirely when hidden
 - Match page: the same 4s score poll, plus `/api/match/[id]` (events, stats, lineups, clips) every 60s from kickoff minus 75 minutes (lineups publish ~1hr out) until the window closes, and an immediate refresh on `visibilitychange`
-- Groups and Stats pages are ISR: regenerated server-side at most every 300s / 900s
+- Groups renders dynamically (`force-dynamic`) so a full-time result shows within about a minute (bounded by the 60s scoreboard cache the table is computed from); Stats is ISR, regenerated at most every 900s
 - The displayed live **minute** is interpolated client-side (`useLiveMinute`): ESPN's `clock` (seconds) only changes in chunks, so we tick locally each second and re-anchor on every poll; stoppage ("45'+3'") and HT are shown verbatim
 
 ## Lineup pitch
 
-`src/components/LineupPitch.tsx` plots both XIs. Each starter's vertical band (GK / defence / DM / midfield / attacking-mid / forward) and left-right rank are derived from the ESPN position abbreviation (`G`, `RB`, `CD-L`, `AM-R`, `F`, ...); `formationPlace` is only a tiebreak because it is **not** line-ordered. Home occupies the top, away the bottom, each team's rows pulled back from the halfway line so the attacking lines don't collide. Per-player event icons (goal/cards/sub with minutes) are matched from the events feed by player name. No player photos, numbers only.
+`src/components/LineupPitch.tsx` plots both XIs. ESPN's API returns no pitch coordinates and only coarse position codes (`G`/`D`/`M`/`F`), so the shape is reconstructed the way ESPN.com does it: from the formation string plus each player's `formationPlace` (a slot index 1-11). `parseFormation` gives the line sizes; single-midfield shapes (4-4-2, 4-3-3, 3-5-2, ...) are placed straight from the coarse labels, while "stacked midfield" shapes (4-2-3-1, 3-4-2-1, ...) use a small per-formation template in `FORMATION_TEMPLATES` that maps each slot to its band **and** its left-to-right column (ESPN's `formationPlace` is not line-ordered, and within a line its left-to-right order is not numeric either, e.g. a back four reads slots 3,6,5,2 across). Templates are stored in a canonical "attacking up" orientation; the home side, which attacks downward, is mirrored horizontally. The old abbreviation heuristic (`band()`/`sideRank()`) remains only as a fallback for formations without a template. Home occupies the top, away the bottom, each team's rows pulled back from the halfway line so the attacking lines don't collide. Per-player event icons (goal/cards/sub with minutes) are matched from the events feed by player name. No player photos, numbers only. **Caveat:** this is much closer than the old heuristic but not a pixel-perfect match to ESPN/LiveScore, and untemplated stacked formations fall back to a merged-midfield look (see KNOWN_ISSUES.md).
 
 ## No-spoilers mode
 

@@ -93,3 +93,15 @@ The Lineups tab plots both starting XIs on a pitch. Positions come from ESPN's p
 ## 60cdbd8, 0a566a3 - No-spoilers mode
 
 A "No spoilers" header toggle (default off, persisted) hides all of our own results behind tap-to-reveal covers with a dissolve: match-card scores, the match detail score/scorers/events/stats, goal markers on the pitch, group tables and the stats leaderboards. Reveal is per-match (one tap unlocks a match's score + scorers + events + stats + pitch goals) or per-section (tables, stats). Status labels (LIVE/HT/FT/kickoff) stay visible; highlights clips are deliberately left untouched (the point is watching the goals before knowing the final). No score flash on load (preference read in a pre-paint layout effect). Also: the WC26 logo refreshes when already on the home view, navigates home otherwise.
+
+## fb06c1a - Sync code copy button
+
+The sync code in Settings gained a one-tap Copy button (writes to the clipboard, flips to "Copied" briefly), and the code itself is now `select-all` so a double-click grabs the whole `TIGER-42` instead of the hyphen splitting it in two.
+
+## 4b82a74, b81db21 - Live group tables + lineup sub minutes
+
+Group standings are now computed from finished match results instead of ESPN's standings endpoint, which lagged full time by many minutes (it showed teams on zero played well after a final whistle). `/groups` renders dynamically and the scoreboard cache dropped to 60s, so a result reaches the table within about a minute. Tiebreakers follow the official 2026 order, which reversed from 2022: head-to-head (points, goal difference, goals among the tied teams) is applied before overall goal difference, re-applied recursively to any subset still level; the disciplinary and FIFA-ranking steps aren't in our data, so they fall back to team name. The Lineups list also now shows the minute each substitute came on or off, read from the substitution events (the pitch already had them).
+
+## 2d296c4, 3c45a35 - Formation-accurate lineup pitch
+
+The pitch previously inferred each player's band from ESPN's coarse position code (only `G`/`D`/`M`/`F`), which collapsed every midfielder into one row (a 4-2-3-1's holding pair and attacking three rendered as a single line of five). ESPN.com instead lays players out from the formation string plus each player's `formationPlace` slot index, paired with formation templates baked into its frontend. We now do the same: single-midfield shapes from the coarse labels, stacked-midfield shapes (4-2-3-1, 3-4-2-1) from a per-formation template that encodes both each slot's band and its true left-to-right column (ESPN's slot order is neither line-ordered nor left-to-right by number), with the home side mirrored since it attacks downward. The old heuristic stays as a fallback for untemplated formations. Closer to ESPN/LiveScore but not yet a perfect match (see KNOWN_ISSUES.md).

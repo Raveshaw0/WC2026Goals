@@ -16,9 +16,13 @@ The embedded highlights player on match detail pages comes from SBS Sport's YouT
 
 The Highlights rail / clip player pull from SBS's "Blaze" stories platform (`blazesdk-prod-cdn.clipro.tv`, label `aa-sbs-aus-wc26`, public key). Undocumented: the key, label, or response shape could change. Mitigations: failure just hides the rail (nothing else breaks), and clips fall back to nothing rather than erroring. If clips stop appearing, re-capture the request from SBS's `stories-carousel-*.html` widget (it loads `sdk.mvp.fan` then calls the clipro endpoint). Clips show SBS's own on-screen scorebug, this is intentional and not masked (you watch highlights to see the goals).
 
-## Lineup pitch positions are a heuristic
+## Lineup pitch positions are reconstructed, not exact
 
-Player dots are placed from ESPN's position abbreviations (`band()` + left/right rank in `LineupPitch.tsx`), not exact coordinates, because `formationPlace` isn't line-ordered. It reconstructs standard formations faithfully but an unusual shape or a new abbreviation could land a dot slightly off. Cosmetic only; the full lineup list below is authoritative.
+ESPN's API gives no pitch coordinates, only coarse `G`/`D`/`M`/`F` codes plus a `formationPlace` slot index, so the pitch is rebuilt from the formation string the way ESPN.com does it (`LineupPitch.tsx`): coarse labels for single-midfield shapes, a per-formation template (`FORMATION_TEMPLATES`) for stacked-midfield shapes like 4-2-3-1. It is much closer than the old abbreviation heuristic (the holding pair and attacking line no longer merge into one row), but it is **not** a pixel-perfect match to ESPN/LiveScore and is known to still look slightly off in places. A stacked formation with no template yet falls back to the old merged-midfield look until its template is added (recipe: read the slots left-to-right off a correct ESPN render and add a row to `FORMATION_TEMPLATES`). Cosmetic only; the full lineup list below the pitch is authoritative.
+
+## Group standings tiebreakers stop short of the full FIFA rules
+
+Tables are computed from results (ESPN's standings feed lags full time badly). Ties follow the official 2026 order through head-to-head and overall goals, but the final two official tiebreakers, disciplinary/conduct points then FIFA ranking, need data we don't collect, so two teams identical through overall goals scored fall back to alphabetical order. Vanishingly rare and only ever a cosmetic ordering of already-decided rows; if it ever genuinely decided qualification it would need the real disciplinary data.
 
 ## No-spoilers is best-effort, not airtight
 
@@ -46,7 +50,7 @@ ESPN's scoreboard exposes a `shootoutScore` field on competitors in some seasons
 
 ## Group letters require a second endpoint
 
-The scoreboard payload does not include group letters for group stage matches (only knockout placeholder names mention groups). The adapter fetches ESPN standings once per hour and joins team id to group. If the standings fetch fails, group badges are omitted but everything else renders.
+The scoreboard payload does not include group letters for group stage matches (only knockout placeholder names mention groups). The adapter fetches ESPN standings once per hour and joins team id to group. (The group **tables** are computed from results, not read from this endpoint; it is used only for the id-to-letter map.) If the standings fetch fails, group badges are omitted but everything else renders.
 
 ## Visitor analytics counts are approximate
 

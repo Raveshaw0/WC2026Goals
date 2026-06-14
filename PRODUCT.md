@@ -26,7 +26,7 @@ Header: the **WC26** logo (refreshes the page when you're already on the home vi
 
 ## Groups
 
-All 12 group tables (A to L): rank, flag, played, won, drawn, lost, goal difference, points. Refreshes every 5 minutes.
+All 12 group tables (A to L): rank, flag, played, won, drawn, lost, goal difference, points. Computed live from match results (not ESPN's slower standings feed), so a finished game shows in the table within about a minute. Ties are broken by the official 2026 rules (head-to-head before overall goal difference).
 
 ## Stats
 
@@ -38,7 +38,7 @@ Score header (teams, flags, score, scorers with minutes, status or Melbourne kic
 
 1. **Stats** (landing tab): match stat bars: possession, shots, shots on target, corners, fouls, offsides, cards, saves, crosses, pass completion, with the leading side highlighted (plus the YouTube highlights embed for finished matches)
 2. **Events**: LiveScore-style timeline: goals with scorer, assister and running score, yellow/red cards, substitutions (on/off), HT and FT rows
-3. **Lineups**: both starting XIs plotted on a **pitch** (home top, away bottom), numbered markers with surnames and per-player event icons (goal/cards/sub with minutes), above the full lineup list with positions and formation; "Lineups TBC, usually ~1hr before kickoff" until published
+3. **Lineups**: both starting XIs plotted on a **pitch** (home top, away bottom) laid out from the real formation, numbered markers with surnames and per-player event icons (goal/cards/sub with minutes), above the full lineup list, which also shows the minute each substitute came on or off; "Lineups TBC, usually ~1hr before kickoff" until published
 4. **Table**: that match's group standings, both teams highlighted (group-stage matches only)
 5. **Watch**: highlights embed on top, then **SBS links (requires SBS login)**: Highlights (3 min), Extended (12 min), Full Match buttons in that order, dimmed "soon" placeholders until each link lands, plus a prefilled SBS search fallback when none have. During the live window the tab shows a single prominent **Watch live on SBS** button that always works (falls back to the SBS World Cup hub until the per-match stream link is found)
 
@@ -54,7 +54,7 @@ A header toggle (default off, remembered) hides every result in our own UI behin
 
 ## Sync (no login)
 
-- First visit mints a readable sync code (e.g. TIGER-42), shown in Settings
+- First visit mints a readable sync code (e.g. TIGER-42), shown in Settings with a one-tap Copy button (and the whole code is selectable on a double-click despite the hyphen)
 - Entering the code on another device merges that device's state in (union, nothing lost) and links them
 - Watched, favourites and followed teams all sync; localStorage carries instant render and offline tolerance
 - State survives redeploys; explicit untoggles propagate without resurrecting on merge
