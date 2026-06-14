@@ -48,17 +48,21 @@ interface Plotted {
   y: number;
 }
 
-// Maps a formation string to bandOf[formationPlace] = band index, where band 0
-// is the goalkeeper, 1 the defensive line, increasing toward attack. Only
-// "stacked midfield" formations need an entry; single-midfield ones (4-4-2,
-// 4-3-3, 3-5-2, ...) are placed from the coarse G/D/M/F labels with no
-// template. Each template is decoded from ESPN's own formationPlace values for
-// a correctly-rendered lineup, then reused for every team in that formation.
-const FORMATION_TEMPLATES: Record<string, Record<number, number>> = {
-  // GK | DEF(3): 4,5,6 | midfield four: 2,3,7,8 | behind striker(2): 10,11 | ST: 9
-  "3-4-2-1": { 1: 0, 2: 2, 3: 2, 4: 1, 5: 1, 6: 1, 7: 2, 8: 2, 9: 4, 10: 3, 11: 3 },
-  // GK | DEF(4): 2,3,5,6 | holding(2): 4,8 | attacking(3): 7,10,11 | ST: 9
-  "4-2-3-1": { 1: 0, 2: 1, 3: 1, 4: 2, 5: 1, 6: 1, 7: 3, 8: 2, 9: 4, 10: 3, 11: 3 },
+// Maps a formation string to its bands. Each band lists the formationPlace
+// slots LEFT-TO-RIGHT in a canonical "attacking up" view (goalkeeper at the
+// bottom, like a normal formation diagram). band 0 is the goalkeeper, band 1
+// the defensive line, increasing toward attack. Both the band assignment AND
+// the within-band order are decoded from ESPN's own render, since ESPN's
+// formationPlace is a slot index whose left-to-right order is not its numeric
+// order (e.g. a back four can be slots 3,6,5,2 from left to right). The
+// renderer mirrors the home side horizontally because it attacks downward.
+// Only "stacked midfield" formations need an entry; single-midfield ones
+// (4-4-2, 4-3-3, 3-5-2, ...) are placed from the coarse G/D/M/F labels.
+const FORMATION_TEMPLATES: Record<string, number[][]> = {
+  // GK | DEF: 4,5,6 | midfield four: 3,8,7,2 | behind the striker: 11,10 | ST: 9
+  "3-4-2-1": [[1], [4, 5, 6], [3, 8, 7, 2], [11, 10], [9]],
+  // GK | DEF: 3,6,5,2 | holding pair: 4,8 | attacking three: 11,10,7 | ST: 9
+  "4-2-3-1": [[1], [3, 6, 5, 2], [4, 8], [11, 10, 7], [9]],
 };
 
 // Parse "4-2-3-1" -> [4,2,3,1] (outfield lines). null unless it cleanly adds up
@@ -73,9 +77,15 @@ function parseFormation(formation: string | null): number[] | null {
   return parts;
 }
 
+const place = (j: number, count: number, mirror: boolean) => {
+  const x = (j + 1) / (count + 1);
+  return mirror ? 1 - x : x;
+};
+
 // Spread each band's players evenly across the width (ordered by formationPlace)
-// and stack the bands by depth (0 = own goal, 1 = attack).
-function placeBands(bands: LineupPlayer[][]): Plotted[] {
+// and stack the bands by depth (0 = own goal, 1 = attack). Used by the coarse
+// and heuristic paths, where the precise left-to-right order isn't known.
+function placeBands(bands: LineupPlayer[][], mirror: boolean): Plotted[] {
   const rows = bands.length;
   const out: Plotted[] = [];
   bands.forEach((line, depth) => {
@@ -85,7 +95,7 @@ function placeBands(bands: LineupPlayer[][]): Plotted[] {
     ordered.forEach((player, j) => {
       out.push({
         player,
-        x: (j + 1) / (ordered.length + 1),
+        x: place(j, ordered.length, mirror),
         y: rows <= 1 ? 0 : depth / (rows - 1),
       });
     });
@@ -93,21 +103,31 @@ function placeBands(bands: LineupPlayer[][]): Plotted[] {
   return out;
 }
 
-// Template path: place every player by its formationPlace -> band. Null if any
-// starter's slot is missing from the template, so we fall back cleanly.
+// Template path: place every player by its formationPlace, using the template's
+// band assignment and left-to-right order. Null if any templated slot has no
+// matching starter (then we fall back cleanly).
 function layoutByTemplate(
   starters: LineupPlayer[],
   lines: number[],
-  bandOf: Record<number, number>
+  bandRows: number[][],
+  mirror: boolean
 ): Plotted[] | null {
-  const numBands = lines.length + 1; // + goalkeeper
-  const bands: LineupPlayer[][] = Array.from({ length: numBands }, () => []);
-  for (const p of starters) {
-    const b = bandOf[Number(p.formationPlace)];
-    if (b === undefined || b >= numBands) return null;
-    bands[b].push(p);
-  }
-  return placeBands(bands);
+  if (bandRows.length !== lines.length + 1) return null;
+  const byFp = new Map(starters.map((p) => [Number(p.formationPlace), p]));
+  const numBands = bandRows.length;
+  const out: Plotted[] = [];
+  bandRows.forEach((row, b) => {
+    row.forEach((fp, j) => {
+      const player = byFp.get(fp);
+      if (!player) return; // missing slot; caught by the count check below
+      out.push({
+        player,
+        x: place(j, row.length, mirror),
+        y: numBands <= 1 ? 0 : b / (numBands - 1),
+      });
+    });
+  });
+  return out.length === starters.length ? out : null;
 }
 
 // Coarse path: works when the formation has a single midfield band, so G/D/M/F
@@ -115,7 +135,8 @@ function layoutByTemplate(
 // formation (then we fall back).
 function layoutByCoarse(
   starters: LineupPlayer[],
-  lines: number[]
+  lines: number[],
+  mirror: boolean
 ): Plotted[] | null {
   if (lines.length !== 3) return null; // only single-midfield shapes here
   const by = (pos: string) => starters.filter((p) => p.position === pos);
@@ -131,13 +152,16 @@ function layoutByCoarse(
   ) {
     return null;
   }
-  return placeBands([gks, def, mid, fwd]);
+  return placeBands([gks, def, mid, fwd], mirror);
 }
 
 // Fallback heuristic (pre-template behaviour): infer a band from the position
 // abbreviation. Collapses multi-band midfields, but never renders worse than
 // before for formations we don't yet template.
-function layoutHeuristic(starters: LineupPlayer[]): Plotted[] {
+function layoutHeuristic(
+  starters: LineupPlayer[],
+  mirror: boolean
+): Plotted[] {
   const byBand = new Map<number, LineupPlayer[]>();
   for (const p of starters) {
     const b = band(p.position);
@@ -160,7 +184,7 @@ function layoutHeuristic(starters: LineupPlayer[]): Plotted[] {
     line.forEach((player, j) => {
       out.push({
         player,
-        x: (j + 1) / (line.length + 1),
+        x: place(j, line.length, mirror),
         y: rows <= 1 ? 0 : depth / (rows - 1),
       });
     });
@@ -168,18 +192,24 @@ function layoutHeuristic(starters: LineupPlayer[]): Plotted[] {
   return out;
 }
 
-function layout(starters: LineupPlayer[], formation: string | null): Plotted[] {
+// `mirror` flips the side horizontally; the home team attacks downward, which
+// is the canonical "attacking up" template rotated 180 degrees.
+function layout(
+  starters: LineupPlayer[],
+  formation: string | null,
+  mirror: boolean
+): Plotted[] {
   const lines = parseFormation(formation);
   if (lines && formation) {
     const template = FORMATION_TEMPLATES[formation];
     if (template) {
-      const byTemplate = layoutByTemplate(starters, lines, template);
+      const byTemplate = layoutByTemplate(starters, lines, template, mirror);
       if (byTemplate) return byTemplate;
     }
-    const byCoarse = layoutByCoarse(starters, lines);
+    const byCoarse = layoutByCoarse(starters, lines, mirror);
     if (byCoarse) return byCoarse;
   }
-  return layoutHeuristic(starters);
+  return layoutHeuristic(starters, mirror);
 }
 
 function lastName(name: string): string {
@@ -367,8 +397,10 @@ export function LineupPitch({
   const awayXI = away.starters;
   if (homeXI.length < 11 || awayXI.length < 11) return null;
 
-  const homePlot = layout(homeXI, home.formation);
-  const awayPlot = layout(awayXI, away.formation);
+  // Home attacks downward (top half), away upward (bottom half), so the home
+  // side is the canonical template mirrored horizontally.
+  const homePlot = layout(homeXI, home.formation, true);
+  const awayPlot = layout(awayXI, away.formation, false);
   const evMap = buildEventMap(events);
   // No-spoilers: drop goal markers (keep cards/subs, which aren't results).
   if (hideGoals) evMap.forEach((e) => (e.goals = []));
