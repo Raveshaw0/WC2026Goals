@@ -39,6 +39,10 @@ SBS On Demand's pages are fully client-rendered, but the World Cup hub page is b
 
 SBS mirrors the short highlights cut to youtube.com/@SBSSportau, which CAN be embedded (SBS On Demand itself is DRM and login gated, links only). Discovery parses `ytInitialData` from the channel's Videos page (currently `lockupViewModel` items). The channel only lists ~30 recent uploads, so discovery must run within days of each match; stored ids are never deleted.
 
+### SBS Blaze stories (in-game highlight clips)
+
+The per-match goal/moment clips (what LiveScore syndicates) come from SBS's "Blaze" stories platform, not the catalogue or YouTube. `src/lib/clips.ts` fetches `blazesdk-prod-cdn.clipro.tv/api/blazesdk/v1.3/stories?ApiKey=<public>&labelsFilterExpression=aa-sbs-aus-wc26&maxItems=50` (works server-side, no referer). `result[]` is one story per match (`title` "Brazil vs. Morocco", `description` carrying date/group, `isLive`, `pages[]` clips). Each clip's `pages[].baseLayer.content.renditions[]` is a plain vertical MP4 on sbs.com.au (no DRM, range-supported, plays in our own `<video>`). Stories map to fixtures by team aliases (title split on " vs. ") **plus the match date** (description `dd-mm-yy` within ~1 day of kickoff UTC), which both disambiguates repeated fixtures and excludes the 2022 demo stories sitting in the feed. The SBS editorial GraphQL (`cms.sbs.com.au/graphql/delivery/sbscontentapi`) was introspected and ruled out, it only carries news/feature videos. Clips ride the 60s match poll via `/api/match/[id]`.
+
 ### Title matching
 
 Rail and video titles match a fixture when both team names appear (via the alias map in `src/lib/aliases.ts`: Korea Republic vs South Korea, Turkiye vs Turkey, Cote d'Ivoire vs Ivory Coast, etc.), plus the word "highlights" for YouTube. No dependence on title structure, so knockout-round retitling cannot break it. The alias map was validated against SBS's own teams collection: all 42 announced teams resolve.
@@ -52,15 +56,25 @@ Runs the hub fetch + YouTube parse, upserts per-match links into `sbs_links`. Ne
 Live window = kickoff minus 5 minutes to kickoff plus 150 minutes (180 for knockouts). Derived from the schedule, never blind.
 
 - Schedule page: `/api/live` every 4s while any window is open, else every 5 minutes; `visibilitychange` stops polling entirely when hidden
-- Match page: the same 4s score poll, plus `/api/match/[id]` (events, stats, lineups) every 60s from kickoff minus 75 minutes (lineups publish ~1hr out) until the window closes
+- Match page: the same 4s score poll, plus `/api/match/[id]` (events, stats, lineups, clips) every 60s from kickoff minus 75 minutes (lineups publish ~1hr out) until the window closes, and an immediate refresh on `visibilitychange`
 - Groups and Stats pages are ISR: regenerated server-side at most every 300s / 900s
+- The displayed live **minute** is interpolated client-side (`useLiveMinute`): ESPN's `clock` (seconds) only changes in chunks, so we tick locally each second and re-anchor on every poll; stoppage ("45'+3'") and HT are shown verbatim
+
+## Lineup pitch
+
+`src/components/LineupPitch.tsx` plots both XIs. Each starter's vertical band (GK / defence / DM / midfield / attacking-mid / forward) and left-right rank are derived from the ESPN position abbreviation (`G`, `RB`, `CD-L`, `AM-R`, `F`, ...); `formationPlace` is only a tiebreak because it is **not** line-ordered. Home occupies the top, away the bottom, each team's rows pulled back from the halfway line so the attacking lines don't collide. Per-player event icons (goal/cards/sub with minutes) are matched from the events feed by player name. No player photos, numbers only.
+
+## No-spoilers mode
+
+`src/hooks/useSpoiler.tsx` holds `noSpoilers` plus revealed match-ids and section-keys, persisted to `localStorage` (`wc26.spoiler.v1`). Read in a **pre-paint layout effect** so a spoiler-free visitor never sees a score flash (server + first client render show scores, matching; the effect flips to hidden before paint). `src/components/SpoilerCover.tsx` wraps any score/result: when hidden it shows an opaque cover with a reveal affordance and dissolves on tap (works inside links via `preventDefault`). Wired into match cards, the match detail score/scorers/events/stats, the pitch goal markers (`hideGoals` prop), group tables and the stats leaderboards. Reveal is per-match (shared `matchId`) or per-section (`tables`, `stats`).
 
 ## Sync model (no accounts)
 
 Two Supabase tables (`supabase/schema.sql`), accessed server-side only through PostgREST with the service role key (no Supabase client library; RLS enabled with no policies, so only the service role can touch anything).
 
 - `user_state`: sync_code (word + two digits, minted server-side with collision retry) -> watched, favourites, favourite_teams (jsonb arrays of ESPN ids)
-- `sbs_links`: match_id -> kickoff metadata, five SBS/YouTube link columns, attempt counters
+- `user_state` also has `favourite_teams` (followed teams feed the Favourites view)
+- `sbs_links`: match_id -> kickoff metadata, the SBS/YouTube link columns (live/highlights/extended/full/mini + `yt_highlights_id`), attempt counters
 
 Merge semantics, the part that bit us:
 
@@ -86,10 +100,15 @@ Caveat: uniqueness is per-browser-localStorage, so cleared storage, incognito, o
 
 ## UI gotchas encoded in the code
 
-- The highlights modal renders through `createPortal(document.body)`: dimmed (opacity) cards create stacking contexts that trap fixed overlays
+- Video popups render through `createPortal(document.body)`: dimmed (opacity) cards create stacking contexts that trap fixed overlays
+- `useBackToClose` (used by the clip player and YouTube modal) pushes a throwaway history entry so the hardware Back button closes the overlay instead of navigating; closing via the UI pops the entry back off
 - Tailwind `future.hoverOnlyWhenSupported` plus transparent `-webkit-tap-highlight-color`: without these, mobile taps leave buttons stuck in hover state
-- Countdown text renders client-side after mount only, so server HTML never disagrees with the client clock (hydration)
-- `EventQr`-style exceptions do not exist here; the only external images are ESPN flags
+- Countdown and live-minute text render client-side after mount only, so server HTML never disagrees with the client clock (hydration); the no-spoilers flag uses the same pre-paint pattern
+- The only external images are ESPN flags, SBS clip thumbnails, and YouTube embeds
+
+## Open Graph share card
+
+`src/app/opengraph-image.tsx` (`next/og` ImageResponse, edge runtime) renders the share card with the adidas Trionda ball (background removed via a sharp circular mask, base64-inlined in `src/app/ballData.ts`). `metadataBase` in `layout.tsx` makes the image URL absolute. Without this, scrapers grabbed the first on-page image (a team flag).
 
 ## Deployment
 

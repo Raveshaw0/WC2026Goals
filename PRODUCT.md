@@ -4,7 +4,7 @@ What WC26 Tracker does, page by page. For how it works underneath, see [ARCHITEC
 
 ## Navigation
 
-Header tabs: **Schedule, Groups, Stats, Australia, Favourites**, plus a red flag report button and a settings gear. The nav row scrolls horizontally on narrow screens.
+Header: the **WC26** logo (refreshes the page when you're already on the home view, navigates home from anywhere else), a **No spoilers** toggle pill, a red flag report button, and a settings gear. Below them the section tabs: **Schedule, Groups, Stats, Australia, Favourites** (the row scrolls horizontally on narrow screens).
 
 ## Schedule (landing page)
 
@@ -34,14 +34,23 @@ Tournament leaders in three sub-tabs: **Top scorers**, **Assists**, **Discipline
 
 ## Match page
 
-Score header (teams, flags, score, status or Melbourne kickoff, venue, shootout score when applicable) with **Follow team** buttons under each side, then watched/favourite actions, then four pill sub-tabs:
+Score header (teams, flags, score, scorers with minutes, status or Melbourne kickoff, venue, shootout score when applicable) with **Follow team** buttons under each side. The live minute ticks smoothly (interpolated client-side between polls, since ESPN's clock only updates in chunks); stoppage and HT show verbatim. During the live window a prominent **Watch live on SBS** button sits right under the score. Then an **in-game Highlights rail** (see below), watched/favourite actions, and five pill sub-tabs:
 
-1. **Stats** (landing tab): the highlights embed sits on top once available, match stat bars below: possession, shots, shots on target, corners, fouls, offsides, cards, saves, crosses, pass completion, with the leading side highlighted
+1. **Stats** (landing tab): match stat bars: possession, shots, shots on target, corners, fouls, offsides, cards, saves, crosses, pass completion, with the leading side highlighted (plus the YouTube highlights embed for finished matches)
 2. **Events**: LiveScore-style timeline: goals with scorer, assister and running score, yellow/red cards, substitutions (on/off), HT and FT rows
-3. **Lineups**: starting XI with shirt numbers, positions and formation, bench below, sub on/off markers; "Lineups TBC, usually ~1hr before kickoff" until published
-4. **Watch**: highlights embed on top, then **SBS links (requires SBS login)**: Highlights (3 min), Extended (12 min), Full Match buttons in that order, dimmed "soon" placeholders until each link lands, plus a prefilled SBS search fallback when none have. During the live window the tab shows a single prominent **Watch live on SBS** button that always works (falls back to the SBS World Cup hub until the per-match stream link is found)
+3. **Lineups**: both starting XIs plotted on a **pitch** (home top, away bottom), numbered markers with surnames and per-player event icons (goal/cards/sub with minutes), above the full lineup list with positions and formation; "Lineups TBC, usually ~1hr before kickoff" until published
+4. **Table**: that match's group standings, both teams highlighted (group-stage matches only)
+5. **Watch**: highlights embed on top, then **SBS links (requires SBS login)**: Highlights (3 min), Extended (12 min), Full Match buttons in that order, dimmed "soon" placeholders until each link lands, plus a prefilled SBS search fallback when none have. During the live window the tab shows a single prominent **Watch live on SBS** button that always works (falls back to the SBS World Cup hub until the per-match stream link is found)
 
-Live behaviour: score updates every 4 seconds; events, stats and lineups poll every 60 seconds from 75 minutes before kickoff (so lineups appear as ESPN publishes them) until the live window closes (kickoff +150 minutes, +180 for knockouts). Clicking any SBS video link or playing embedded highlights auto-marks the match watched.
+Live behaviour: score updates every 4 seconds; events, stats, lineups and clips poll every 60 seconds from 75 minutes before kickoff (so lineups appear as ESPN publishes them) until the live window closes (kickoff +150 minutes, +180 for knockouts), and refresh immediately when the tab regains focus. Clicking any SBS video link or playing embedded highlights auto-marks the match watched.
+
+## In-game highlights
+
+Per-match goal and key-moment clips, published by SBS during and after the match (the same feed LiveScore syndicates). They appear in a **Highlights rail** under the score with a LIVE badge while the game is on, refreshing as new clips drop. Tapping one opens a full-screen story-style player (vertical video) with prev/next edge buttons, swipe, and keyboard arrows; the hardware Back button closes it. Clips are plain MP4s played in our own player. The clips show SBS's own on-screen score, which is intended (you're watching to see the goals).
+
+## No spoilers
+
+A header toggle (default off, remembered) hides every result in our own UI behind tap-to-reveal covers with a dissolve: match-card scores, the match detail score, scorers, events, stats and the goal markers on the pitch, plus group tables and the stats leaderboards. Revealing is per-match (one tap unlocks a match's score + scorers + events + stats + pitch goals together) or per-section (tables, stats). Status labels (LIVE/HT/FT/kickoff) stay visible so you still know what's on. Highlights clips are deliberately untouched, so the spoiler-averse can watch the goals unfold before learning the final score. No score flashes on load.
 
 ## Sync (no login)
 

@@ -2,15 +2,17 @@
 
 A personal FIFA World Cup 2026 companion, live at [wc2026.alextestingstuff.com](https://wc2026.alextestingstuff.com).
 
-Built in one night (June 12, 2026, day two of the tournament) to solve one problem: **never miss a goal**. Every match tracked, every highlight one tap away, watched progress synced across devices without a login.
+Built across a few evenings from June 12, 2026 (day two of the tournament) to solve one problem: **never miss a goal**. Every match tracked, every highlight one tap away, watched progress synced across devices without a login.
 
 ## What it does
 
-- **Live scores** polling every 4 seconds during matches, with kickoff countdowns, all times Australia/Melbourne
+- **Live scores** polling every 4 seconds during matches, with a smoothly ticking live minute and kickoff countdowns, all times Australia/Melbourne
 - **Full 104-match schedule** centered on today, with group tables, tournament top scorers, assists and discipline
-- **Match pages** with a LiveScore-style events timeline, stat bars, lineups, all updating live
-- **Highlights without leaving the app**: SBS Sport's YouTube highlights embedded in popups and match pages, discovered automatically within minutes of upload
-- **SBS On Demand links** per match: live stream, highlights, extended highlights, full replay, discovered from SBS's own catalogue API
+- **Match pages** (Stats / Events / Lineups / Table / Watch) with a LiveScore-style events timeline, stat bars, and a **lineup pitch** plotting both XIs with goal/card/sub markers, all updating live
+- **In-game highlight clips** during the match (SBS's Blaze feed), in a Highlights rail and a story-style player, the same goal clips LiveScore syndicates
+- **Highlights without leaving the app**: SBS Sport's YouTube highlights embedded in popups and match pages
+- **SBS On Demand links** per match: live stream, highlights, extended highlights, full replay, from SBS's own catalogue API
+- **No-spoilers mode**: a header toggle that hides every result behind tap-to-reveal covers (highlights stay watchable)
 - **Watched tracking and stats**: tick off matches (auto-ticked when you play highlights), see goals-seen percentage, follow teams, favourite matches
 - **Cross-device sync** via a readable code (TIGER-42 style), no accounts
 - **Issue reporting** straight to email from the header flag button
@@ -27,7 +29,7 @@ Built in one night (June 12, 2026, day two of the tournament) to solve one probl
 
 ## Stack
 
-Next.js 14 (App Router) + TypeScript + Tailwind on Vercel (syd1), Supabase (Postgres via PostgREST) for the two tables, zero runtime dependencies beyond React. Data from ESPN's unofficial public API, SBS's catalogue API, and SBS Sport's YouTube channel, all proxied server-side.
+Next.js 14 (App Router) + TypeScript + Tailwind on Vercel (syd1), Supabase (Postgres via PostgREST) for `sbs_links`, `user_state` and `page_views`, zero runtime dependencies beyond React. Data from ESPN's unofficial public API, SBS's catalogue API, SBS's Blaze stories feed, and SBS Sport's YouTube channel, all proxied server-side.
 
 ## Running it
 

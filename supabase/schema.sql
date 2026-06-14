@@ -35,5 +35,19 @@ create table if not exists user_state (
   updated_at timestamptz default now()
 );
 
+-- First-party visitor analytics (no cookies). One row per page view; the
+-- `site` column lets this same table/project serve the landing site too.
+create table if not exists page_views (
+  id bigint generated always as identity primary key,
+  ts timestamptz not null default now(),
+  site text not null,
+  path text,
+  referrer text,
+  visitor text,
+  country text
+);
+create index if not exists page_views_site_ts on page_views (site, ts desc);
+
 alter table sbs_links enable row level security;
 alter table user_state enable row level security;
+alter table page_views enable row level security;

@@ -12,6 +12,18 @@ Manual override: you can paste a URL directly into the `sbs_links` row in Supaba
 
 The embedded highlights player on match detail pages comes from SBS Sport's YouTube channel (@SBSSportau). Discovery parses the `ytInitialData` JSON inside the channel's Videos page, currently shaped as `lockupViewModel` items. YouTube reshapes this periodically (it changed from `videoRenderer` to `lockupViewModel` sometime before June 2026). Matching is on both team names plus the word "highlights" in the title, so SBS retitling for knockout rounds will not break it, but a YouTube markup change would. If embeds stop appearing for new matches while SBS links still work, the parser in `fetchYoutubeHighlights()` is the suspect. The channel only lists ~30 recent uploads, so discovery must run within a few days of each match (the 15-minute GitHub Action makes this a non-issue in practice). Stored ids are never deleted.
 
+## In-game clips use an undocumented Blaze feed
+
+The Highlights rail / clip player pull from SBS's "Blaze" stories platform (`blazesdk-prod-cdn.clipro.tv`, label `aa-sbs-aus-wc26`, public key). Undocumented: the key, label, or response shape could change. Mitigations: failure just hides the rail (nothing else breaks), and clips fall back to nothing rather than erroring. If clips stop appearing, re-capture the request from SBS's `stories-carousel-*.html` widget (it loads `sdk.mvp.fan` then calls the clipro endpoint). Clips show SBS's own on-screen scorebug, this is intentional and not masked (you watch highlights to see the goals).
+
+## Lineup pitch positions are a heuristic
+
+Player dots are placed from ESPN's position abbreviations (`band()` + left/right rank in `LineupPitch.tsx`), not exact coordinates, because `formationPlace` isn't line-ordered. It reconstructs standard formations faithfully but an unusual shape or a new abbreviation could land a dot slightly off. Cosmetic only; the full lineup list below is authoritative.
+
+## No-spoilers is best-effort, not airtight
+
+Hidden scores are rendered then covered by an opaque overlay (so the dissolve works), meaning the number exists in the DOM, view-source would reveal it. Fine for a casual "don't show me the result" feature, not a security boundary. The pre-paint layout effect prevents the on-screen flash for normal navigation.
+
 ## Issue reports require RESEND_API_KEY
 
 The "Something is broken" button posts to `/api/report`, which emails alexanderlukic84@gmail.com via a dedicated Resend account (sending from onboarding@resend.dev to the account's own inbox needs no domain verification; override with REPORT_TO_EMAIL / REPORT_FROM_EMAIL if a domain is verified later). Without `RESEND_API_KEY` set, the endpoint returns 503 and the UI shows "Could not send".

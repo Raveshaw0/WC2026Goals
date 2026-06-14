@@ -69,3 +69,27 @@ Classic panel-ball favicon (`src/app/icon.svg`). Score card now lists each team'
 ## f2aa0f0, 287a511 - Favicon
 
 Soccer ball favicon at `src/app/icon.svg` (App Router serves `icon.svg` automatically). Second iteration is the classic truncated-icosahedron panel ball: centre pentagon, five rim pentagons clipped by the sphere, seams. Verified legible at 32px before shipping.
+
+## a0c31ba, e21e09f - Open Graph share card
+
+Social shares were pulling a random team flag (no designated image). Added metadata + a generated OG card (`src/app/opengraph-image.tsx` via `next/og`) reading "FIFA WORLD CUP 2026 Tracker" with the real adidas Trionda match ball, its background stripped via a sharp circular mask and inlined as base64 (`src/app/ballData.ts`). `metadataBase` set so the URL resolves absolutely. (LinkedIn caches scrapes; use its Post Inspector to refresh.)
+
+## 4e52dac - Live polish
+
+Pseudo-live ticking match minute on the detail page: ESPN's clock only changes in ~minute chunks even when polled every 4s, so we interpolate locally (`useLiveMinute`) and re-anchor on each poll, with stoppage time and HT shown verbatim. A prominent "Watch live on SBS" button now also sits on the landing tab during the live window. Events/stats refresh the instant the tab regains focus (returning from the SBS stream).
+
+## 6e8af68, 5c95e74 - In-game highlight clips
+
+Per-match goal/moment clips during a live game (the thing LiveScore syndicates), traced to SBS's Blaze stories platform (`blazesdk-prod-cdn.clipro.tv`, public key, label `aa-sbs-aus-wc26`); each story is a match with plain vertical MP4s on sbs.com.au (no DRM). `src/lib/clips.ts` fetches the feed, maps stories to fixtures by team aliases + match date (date guard excludes 2022 demo stories). A "Highlights" rail with a LIVE badge sits under the score and plays clips in our own story-style player (edge prev/next chevrons, swipe, keyboard). SBS's editorial GraphQL (`cms.sbs.com.au`) was introspected and ruled out (news/feature videos only).
+
+## c547d4b - Back button closes video popups
+
+`useBackToClose` makes the hardware/browser Back button close an open video overlay (clip player, YouTube modal) instead of navigating away, via a throwaway history entry; closing through the UI cleans the entry up.
+
+## Lineup pitch + event overlay
+
+The Lineups tab plots both starting XIs on a pitch. Positions come from ESPN's position abbreviations (band heuristic + left/right rank; `formationPlace` is only a tiebreak since it isn't line-ordered). Numbered markers (mint home top, sky away bottom) with surnames that truncate to avoid clashing. Per-player event overlays matched from the events feed: a panel soccer-ball goal icon + minute (og/p flagged), yellow/red card chips, a red down-arrow for subbed-off players (dimmed). Desktop pitch capped at 460px so it stays proportionate; the field is tall enough (aspect 5/9, each team's rows pulled back from the halfway line) that the two attacking lines never collide.
+
+## 60cdbd8, 0a566a3 - No-spoilers mode
+
+A "No spoilers" header toggle (default off, persisted) hides all of our own results behind tap-to-reveal covers with a dissolve: match-card scores, the match detail score/scorers/events/stats, goal markers on the pitch, group tables and the stats leaderboards. Reveal is per-match (one tap unlocks a match's score + scorers + events + stats + pitch goals) or per-section (tables, stats). Status labels (LIVE/HT/FT/kickoff) stay visible; highlights clips are deliberately left untouched (the point is watching the goals before knowing the final). No score flash on load (preference read in a pre-paint layout effect). Also: the WC26 logo refreshes when already on the home view, navigates home otherwise.
