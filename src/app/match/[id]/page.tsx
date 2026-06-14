@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { PhotoBackground } from "@/components/PhotoBackground";
 import { StaleBanner } from "@/components/StaleBanner";
 import { clipsForMatch } from "@/lib/clips";
 import { getSbsLink } from "@/lib/db";
@@ -44,8 +45,13 @@ export default async function MatchPage({
     };
   }
 
+  // Celebration backdrop for the Australia v Türkiye match (Irankunda's goal).
+  const teams = `${match.home.name} ${match.away.name}`;
+  const isAusTur = /australia/i.test(teams) && /t(ü|u)rk/i.test(teams);
+
   return (
     <div className="space-y-4">
+      {isAusTur && <PhotoBackground />}
       <StaleBanner stale={all.stale} lastUpdated={all.lastUpdated} />
       <MatchDetailClient
         initialMatch={match}

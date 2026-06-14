@@ -1,3 +1,4 @@
+import { PhotoBackground } from "@/components/PhotoBackground";
 import { fetchAllMatches } from "@/lib/espn";
 import { withSbsLinks } from "@/lib/sbs";
 
@@ -19,11 +20,14 @@ export default async function HomePage({
       ? searchParams.filter
       : "all";
   return (
-    <ScheduleClient
-      initialMatches={await withSbsLinks(result.data ?? [])}
-      initialStale={result.stale}
-      initialLastUpdated={result.lastUpdated}
-      filter={filter}
-    />
+    <>
+      <PhotoBackground />
+      <ScheduleClient
+        initialMatches={await withSbsLinks(result.data ?? [])}
+        initialStale={result.stale}
+        initialLastUpdated={result.lastUpdated}
+        filter={filter}
+      />
+    </>
   );
 }
