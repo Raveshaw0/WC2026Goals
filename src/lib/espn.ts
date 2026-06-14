@@ -262,6 +262,7 @@ function mapLineupPlayer(p: any): LineupPlayer {
     name: String(p?.athlete?.displayName ?? "Unknown"),
     jersey: String(p?.jersey ?? ""),
     position: String(p?.position?.abbreviation ?? ""),
+    formationPlace: Number(p?.formationPlace ?? 0),
     starter: Boolean(p?.starter),
     subbedIn: Boolean(p?.subbedIn),
     subbedOut: Boolean(p?.subbedOut),

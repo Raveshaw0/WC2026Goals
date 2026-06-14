@@ -46,6 +46,10 @@ README, refreshed PRODUCT, new ARCHITECTURE and this changelog.
 
 Match pages gained a Table tab showing that group's standings with the two competing teams highlighted, via a GroupTable component shared with the groups page. Knockout matches (no group) skip the tab.
 
+## Lineup pitch view
+
+The Lineups tab now plots both starting XIs on a pitch (home top attacking down, away bottom attacking up), above the existing list. Positions are derived from ESPN's position abbreviations (G/RB/CD-L/AM-R/F...), which reconstruct the formation shape; formationPlace is only a tiebreak. Numbered markers (mint home, sky away) with surnames, drawn markings, formation labels. No player photos needed.
+
 ## In-game highlight clips (during the match)
 
 Per-match goal/moment clips that appear during a live game, the thing LiveScore syndicates. Traced to SBS's "Blaze" stories platform (`blazesdk-prod-cdn.clipro.tv`, public key, label `aa-sbs-aus-wc26`); each story is a match with vertical MP4 clips hosted on sbs.com.au (no DRM). `src/lib/clips.ts` fetches the feed (60s revalidate), maps stories to fixtures by team aliases + match date, and exposes per-match clips. A prominent "Highlights" rail (with a LIVE badge) sits under the score on the match page and plays clips in our own story-style `<video>` popup, refreshing on the 60s match poll. The SBS editorial GraphQL API (`cms.sbs.com.au/graphql/delivery/sbscontentapi`) was investigated first and ruled out (only carries news/feature videos, no goal clips).

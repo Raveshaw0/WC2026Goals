@@ -75,7 +75,8 @@ export interface MatchesPayload {
 export interface LineupPlayer {
   name: string;
   jersey: string;
-  position: string;
+  position: string; // ESPN abbreviation, e.g. "G", "RB", "AM-L"
+  formationPlace: number; // ESPN slot 1..11 (tiebreak for pitch layout)
   starter: boolean;
   subbedIn: boolean;
   subbedOut: boolean;

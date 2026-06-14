@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { ClipsHighlights } from "@/components/ClipsHighlights";
 import { EventsTimeline } from "@/components/EventsTimeline";
+import { LineupPitch } from "@/components/LineupPitch";
 import { GroupTable } from "@/components/GroupTable";
 import { Lineups } from "@/components/Lineups";
 import { EyeIcon, Flag, StarIcon } from "@/components/MatchCard";
@@ -434,7 +435,23 @@ export function MatchDetailClient({
           <TabPlaceholder text="Events appear once the match kicks off" />
         ))}
 
-      {tab === "lineups" && <Lineups lineups={summary.lineups} />}
+      {tab === "lineups" &&
+        (() => {
+          const homeLine = summary.lineups.find(
+            (l) => l.teamId === match.home.id
+          );
+          const awayLine = summary.lineups.find(
+            (l) => l.teamId === match.away.id
+          );
+          return (
+            <div className="space-y-4">
+              {homeLine && awayLine && (
+                <LineupPitch home={homeLine} away={awayLine} />
+              )}
+              <Lineups lineups={summary.lineups} />
+            </div>
+          );
+        })()}
 
       {tab === "table" && groupTable && (
         <GroupTable
