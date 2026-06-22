@@ -3,6 +3,7 @@
 // calls trackPageview() on every navigation (full load or SPA route change).
 
 const VID_KEY = "ats.vid";
+const OPTOUT_KEY = "ats.optout";
 const SID_KEY = "ats.sid";
 const SLAST_KEY = "ats.slast";
 const SENTRY_KEY = "ats.entry";
@@ -284,8 +285,31 @@ function parseUtm(): Record<string, string> {
   return out;
 }
 
+// Visiting any page with ?ats_optout=1 stops tracking on this device (and
+// ?ats_optout=0 re-enables it). Lets the owner exclude their own visits.
+function applyOptoutParam(): void {
+  try {
+    const v = new URLSearchParams(location.search).get("ats_optout");
+    if (v === null) return;
+    if (v === "0" || v === "false") localStorage.removeItem(OPTOUT_KEY);
+    else localStorage.setItem(OPTOUT_KEY, "1");
+  } catch {
+    // ignore
+  }
+}
+function isOptedOut(): boolean {
+  try {
+    return localStorage.getItem(OPTOUT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 // Called by <Beacon/> on each navigation.
 export async function trackPageview(path: string): Promise<void> {
+  applyOptoutParam();
+  if (isOptedOut()) return;
+
   // finalize the previous pageview (SPA navigation)
   if (curPath && !finalized) finalize();
 
