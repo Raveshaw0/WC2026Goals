@@ -10,6 +10,7 @@ import { Lineups } from "@/components/Lineups";
 import { EyeIcon, Flag, StarIcon } from "@/components/MatchCard";
 import { MatchStats } from "@/components/MatchStats";
 import { SbsButtons } from "@/components/SbsButtons";
+import { ShootoutPanel } from "@/components/ShootoutPanel";
 import { SpoilerCover } from "@/components/SpoilerCover";
 import { useLiveMatches } from "@/hooks/useLiveMatches";
 import { useSpoiler } from "@/hooks/useSpoiler";
@@ -154,8 +155,12 @@ function useLiveMinute(match: Match): string {
   if (!live) return match.displayClock || "Live";
   // During stoppage ESPN's "45'+3'" is authoritative; don't interpolate.
   if (match.displayClock.includes("+")) return match.displayClock;
-  const secs =
-    anchor.current.clock + (Date.now() - anchor.current.at) / 1000;
+  // Clamp the local drift. The 4s score poll re-anchors `clock` during normal
+  // play, so this cap never bites then; it only matters if ESPN freezes the
+  // clock (a period break) while the status still reads live, where it stops
+  // the minute running away from the frozen anchor.
+  const drift = Math.min((Date.now() - anchor.current.at) / 1000, 75);
+  const secs = anchor.current.clock + drift;
   return `${Math.floor(secs / 60)}'`;
 }
 
@@ -361,9 +366,14 @@ export function MatchDetailClient({
                       <span className="live-dot inline-block h-2 w-2 rounded-full bg-live" />
                       {liveMinute}
                     </span>
+                  ) : match.status === "halftime" || match.status === "break" ? (
+                    <span className="text-xs font-semibold text-amber-400">
+                      {match.statusDetail ||
+                        (match.status === "halftime" ? "HT" : "Break")}
+                    </span>
                   ) : (
                     <span className="text-xs font-medium text-zinc-400">
-                      {match.status === "halftime" ? "HT" : match.statusDetail}
+                      {match.statusDetail}
                     </span>
                   )}
                 </div>
@@ -453,9 +463,14 @@ export function MatchDetailClient({
       )}
 
       {tab === "events" &&
-        (summary.events.length > 0 ? (
+        (summary.events.length > 0 || summary.shootout.length > 0 ? (
           <SpoilerCover matchId={match.id} label="Reveal events">
-            <EventsTimeline events={summary.events} match={match} />
+            <div className="space-y-4">
+              {summary.shootout.length > 0 && (
+                <ShootoutPanel shootout={summary.shootout} match={match} />
+              )}
+              <EventsTimeline events={summary.events} match={match} />
+            </div>
           </SpoilerCover>
         ) : (
           <TabPlaceholder text="Events appear once the match kicks off" />

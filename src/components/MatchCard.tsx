@@ -78,6 +78,13 @@ function StatusPill({ match }: { match: Match }) {
   if (match.status === "halftime") {
     return <span className="text-xs font-semibold text-amber-400">HT</span>;
   }
+  if (match.status === "break") {
+    return (
+      <span className="text-xs font-semibold text-amber-400">
+        {match.statusDetail || "Break"}
+      </span>
+    );
+  }
   if (match.status === "finished") {
     return <span className="text-xs font-medium text-zinc-500">FT</span>;
   }

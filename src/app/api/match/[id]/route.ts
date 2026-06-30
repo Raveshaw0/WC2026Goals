@@ -26,7 +26,7 @@ export async function GET(
   ]);
   return NextResponse.json({
     match,
-    summary: summary.data ?? { lineups: [], events: [], stats: [] },
+    summary: summary.data ?? { lineups: [], events: [], stats: [], shootout: [] },
     clips,
     stale: all.stale || summary.stale,
   });

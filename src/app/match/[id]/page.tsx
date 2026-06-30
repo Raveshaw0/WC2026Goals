@@ -49,7 +49,9 @@ export default async function MatchPage({
       <StaleBanner stale={all.stale} lastUpdated={all.lastUpdated} />
       <MatchDetailClient
         initialMatch={match}
-        initialSummary={summary.data ?? { lineups: [], events: [], stats: [] }}
+        initialSummary={
+          summary.data ?? { lineups: [], events: [], stats: [], shootout: [] }
+        }
         groupTable={groupTable}
         initialClips={clips}
       />

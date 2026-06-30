@@ -21,9 +21,16 @@ export function isInLiveWindow(
   match: Pick<Match, "kickoff" | "knockout" | "status">,
   now: number = Date.now()
 ): boolean {
-  // A match ESPN says is live is in window regardless of clock maths; a match
-  // ESPN says is finished is out of window even if time remains.
-  if (match.status === "live" || match.status === "halftime") return true;
+  // A match ESPN says is live (incl. halftime and knockout pauses like the
+  // pre-extra-time and pre-shootout breaks) is in window regardless of clock
+  // maths; a match ESPN says is finished is out of window even if time remains.
+  if (
+    match.status === "live" ||
+    match.status === "halftime" ||
+    match.status === "break"
+  ) {
+    return true;
+  }
   if (match.status === "finished" || match.status === "postponed") return false;
   const { start, end } = liveWindowFor(match);
   return now >= start && now <= end;

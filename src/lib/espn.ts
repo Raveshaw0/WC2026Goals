@@ -12,6 +12,7 @@ import type {
   MatchStatus,
   MatchSummary,
   Round,
+  ShootoutTeam,
   StandingRow,
   TeamLineup,
   TeamSide,
@@ -76,13 +77,36 @@ async function cachedJson<T>(
 
 function mapStatus(statusType: any): { status: MatchStatus; detail: string } {
   const state = statusType?.state ?? "pre";
-  const name = String(statusType?.name ?? "");
+  const name = String(statusType?.name ?? "").toUpperCase();
   const shortDetail = String(statusType?.shortDetail ?? "");
   if (name.includes("POSTPONED") || name.includes("CANCELED")) {
     return { status: "postponed", detail: shortDetail || "Postponed" };
   }
   if (state === "pre") return { status: "scheduled", detail: shortDetail };
   if (state === "post") return { status: "finished", detail: shortDetail || "FT" };
+
+  // In-progress. Knockout ties add mid-match pauses where ESPN FREEZES the
+  // match clock: end of regulation before extra time, the extra-time
+  // half-time, and the gap before a shootout. These must surface a phase
+  // label rather than a minute, because the live-minute interpolation anchors
+  // on the (now frozen) clock and would otherwise keep climbing past it (e.g.
+  // ticking 91', 92'... during the break before extra time). Actively-running
+  // periods (both normal halves and the two extra-time halves) stay "live" so
+  // the minute keeps ticking. We match the standard ESPN soccer status-name
+  // family by substring (resilient to minor naming variants) and fall back to
+  // ESPN's own short label, so an unrecognised pause still reads sensibly.
+  if (name.includes("SHOOTOUT") || name.includes("PENALT")) {
+    return { status: "break", detail: "Penalties" };
+  }
+  if (name.includes("END_OF_REGULATION") || name.includes("END_REGULATION")) {
+    return { status: "break", detail: "End of 90'" };
+  }
+  if (name.includes("END_OF_EXTRA") || name.includes("END_EXTRA")) {
+    return { status: "break", detail: "End of extra time" };
+  }
+  if (name.includes("HALFTIME") && (name.includes("EXTRA") || name.includes("_ET"))) {
+    return { status: "break", detail: "ET half-time" };
+  }
   if (name.includes("HALFTIME")) return { status: "halftime", detail: "HT" };
   return { status: "live", detail: shortDetail || "Live" };
 }
@@ -360,6 +384,30 @@ function mapEvents(raw: any, homeTeamId: string): MatchEvent[] {
   return out;
 }
 
+// Penalty shootout. ESPN keeps this OUT of keyEvents and in a dedicated
+// top-level `shootout` array: one entry per team, with an ordered list of
+// shots carrying the taker and whether it was scored. teamId is ESPN's team
+// id, which the UI maps to home/away.
+function mapShootout(raw: any): ShootoutTeam[] {
+  const teams = raw?.shootout;
+  if (!Array.isArray(teams)) return [];
+  return teams
+    .map((t: any) => ({
+      teamId: String(t?.id ?? t?.team?.id ?? ""),
+      shots: (Array.isArray(t?.shots) ? t.shots : [])
+        .slice()
+        .sort(
+          (a: any, b: any) =>
+            Number(a?.shotNumber ?? 0) - Number(b?.shotNumber ?? 0)
+        )
+        .map((s: any) => ({
+          player: String(s?.player ?? "Unknown"),
+          scored: Boolean(s?.didScore),
+        })),
+    }))
+    .filter((t: ShootoutTeam) => t.teamId !== "" && t.shots.length > 0);
+}
+
 // Curated boxscore stats in LiveScore-ish order. ESPN's name -> our label.
 const STAT_PICKS: Array<{ name: string; label: string; pct?: boolean }> = [
   { name: "possessionPct", label: "Possession %", pct: true },
@@ -441,6 +489,7 @@ export async function fetchMatchSummary(
       lineups,
       events: mapEvents(result.data, homeTeamId),
       stats: mapStats(result.data, homeTeamId),
+      shootout: mapShootout(result.data),
     },
     stale: result.stale,
     lastUpdated: result.lastUpdated,
@@ -718,7 +767,11 @@ export async function fetchLeaders(): Promise<FetchResult<LeadersPayload>> {
   };
 
   const started = all.data.filter(
-    (m) => m.status === "finished" || m.status === "live" || m.status === "halftime"
+    (m) =>
+      m.status === "finished" ||
+      m.status === "live" ||
+      m.status === "halftime" ||
+      m.status === "break"
   );
 
   // Scorers from scoreboard goal details (own goals and shootouts excluded).

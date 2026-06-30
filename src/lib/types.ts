@@ -5,6 +5,7 @@ export type MatchStatus =
   | "scheduled"
   | "live"
   | "halftime"
+  | "break" // knockout mid-match pause: end of regulation, ET half-time, pre-shootout
   | "finished"
   | "postponed";
 
@@ -117,10 +118,23 @@ export interface MatchStatPair {
   homePct: number; // 0..1 share for the bar split
 }
 
+// One penalty in a shootout, in the order taken.
+export interface ShootoutShot {
+  player: string;
+  scored: boolean;
+}
+
+// A team's shootout column. teamId maps to match.home.id / match.away.id.
+export interface ShootoutTeam {
+  teamId: string;
+  shots: ShootoutShot[];
+}
+
 export interface MatchSummary {
   lineups: TeamLineup[]; // empty when not yet published
   events: MatchEvent[]; // empty until kickoff
   stats: MatchStatPair[]; // empty until ESPN publishes the boxscore
+  shootout: ShootoutTeam[]; // empty unless the match went to penalties
 }
 
 export interface StandingRow {
