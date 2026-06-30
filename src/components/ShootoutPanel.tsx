@@ -130,7 +130,10 @@ export function ShootoutPanel({
             className="flex items-center gap-2 border-b border-edge/60 px-3 py-2 last:border-b-0"
           >
             <HomeShot shot={homeShots[i]} />
-            <span className="w-5 shrink-0 text-center font-mono text-[11px] text-zinc-600">
+            <span
+              className="w-6 shrink-0 text-center text-sm font-bold tabular-nums text-zinc-400"
+              title={`Penalty ${i + 1}`}
+            >
               {i + 1}
             </span>
             <AwayShot shot={awayShots[i]} />
