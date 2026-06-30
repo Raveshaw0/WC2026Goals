@@ -48,9 +48,11 @@ No SLA, shapes can change without notice. Mitigations: single adapter file (`src
 
 The spec defined a single `attempts` column but also required stopping after 20 attempts per match per link type. `supabase/schema.sql` therefore has `attempts_live` and `attempts_highlights` columns alongside `attempts` (kept as a total). One column could not satisfy the per-type cap.
 
-## Penalty shootout scores
+## Penalty shootouts and knockout break states
 
-ESPN's scoreboard exposes a `shootoutScore` field on competitors in some seasons. Mapping is implemented defensively (shows when present), but no 2026 match has reached penalties yet, so the exact live shape is unverified until the round of 32.
+The score card shows the shootout result (`shootoutScore` on each competitor), and the Events tab shows a full Penalty shootout panel (each taker in order with a scored/missed mark and an order number), parsed from ESPN's dedicated top-level `shootout` array. Both were verified against real round-of-32 shootouts (GER v PAR, NED v MAR) on 2026-06-30, so the data shape is now confirmed, not assumed.
+
+One thing is still inferred rather than observed: the LIVE status strings ESPN sends during the knockout mid-match breaks (end of regulation before extra time, extra-time half-time, shootout in progress). No match was at one of those phases when the feature was built, so `mapStatus` matches the standard ESPN soccer status-name family by substring (END_OF_REGULATION, END_OF_EXTRA, HALFTIME+EXTRA, SHOOTOUT/PENALT) and falls back to ESPN's own short label; `useLiveMinute` also clamps its interpolation drift so even an unrecognised break can't make the minute run away. If a live knockout tie ever shows a wrong or missing break label, capture the match and the label shown and pin the exact status string.
 
 ## Group letters require a second endpoint
 
