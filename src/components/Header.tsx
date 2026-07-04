@@ -65,6 +65,7 @@ function NavTabs() {
     <>
       {tab("/", "Schedule", filter === "all")}
       {tab("/groups", "Groups", pathname === "/groups")}
+      {tab("/bracket", "Bracket", pathname === "/bracket")}
       {tab("/stats", "Stats", pathname === "/stats")}
       {tab("/?filter=australia", "Australia", filter === "australia")}
       {tab("/?filter=favourites", "Favourites", filter === "favourites")}

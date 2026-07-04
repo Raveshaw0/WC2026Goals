@@ -8,6 +8,7 @@ Built across a few evenings from June 12, 2026 (day two of the tournament) to so
 
 - **Live scores** polling every 4 seconds during matches, with a smoothly ticking live minute and kickoff countdowns, all times Australia/Melbourne
 - **Full 104-match schedule** centered on today, with group tables, tournament top scorers, assists and discipline
+- **Knockout bracket**: the classic two-sided tree from the round of 32 to the final (third place below it), results filling in live, derived from the same match feed and respecting no-spoilers
 - **Match pages** (Stats / Events / Lineups / Table / Watch) with a LiveScore-style events timeline, stat bars, and a **lineup pitch** plotting both XIs with goal/card/sub markers, all updating live
 - **In-game highlight clips** during the match (SBS's Blaze feed), in a Highlights rail and a story-style player, the same goal clips LiveScore syndicates
 - **Highlights without leaving the app**: SBS Sport's YouTube highlights embedded in popups and match pages

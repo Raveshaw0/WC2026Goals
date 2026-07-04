@@ -4,7 +4,7 @@ What WC26 Tracker does, page by page. For how it works underneath, see [ARCHITEC
 
 ## Navigation
 
-Header: the **WC26** logo (refreshes the page when you're already on the home view, navigates home from anywhere else), a **No spoilers** toggle pill, a red flag report button, and a settings gear. Below them the section tabs: **Schedule, Groups, Stats, Australia, Favourites** (the row scrolls horizontally on narrow screens).
+Header: the **WC26** logo (refreshes the page when you're already on the home view, navigates home from anywhere else), a **No spoilers** toggle pill, a red flag report button, and a settings gear. Below them the section tabs: **Schedule, Groups, Bracket, Stats, Australia, Favourites** (the row scrolls horizontally on narrow screens).
 
 ## Schedule (landing page)
 
@@ -27,6 +27,18 @@ Header: the **WC26** logo (refreshes the page when you're already on the home vi
 ## Groups
 
 All 12 group tables (A to L): rank, flag, played, won, drawn, lost, goal difference, points. Computed live from match results (not ESPN's slower standings feed), so a finished game shows in the table within about a minute. Ties are broken by the official 2026 rules (head-to-head before overall goal difference).
+
+## Bracket
+
+The knockout tree as a classic two-sided bracket: the round of 32 down each outer edge, converging through the round of 16, quarter-finals and semi-finals to the **Final** in the centre, with the **third-place** match pinned just below it. Connector lines run from every match to the two it feeds. On a phone it scrolls sideways and opens centred on the final; on a wide screen more of the tree is visible at once.
+
+- Each match cell shows both flags, three-letter team codes, and the score, with the winner highlighted
+- Undecided slots read as their feeder ("R16 M1 winner", "SF1 winner") and fill in with the real team the moment ESPN resolves the match
+- Live knockout matches carry a pulsing dot and update on the same live poll as the rest of the app; the champion is flagged under the final once it's played
+- **No spoilers** is respected: with the pill on, a slot stays a feeder placeholder until you reveal the result that fills it, and every score hides behind the same tap-to-reveal cover used elsewhere, so the bracket never gives away who advanced
+- Tapping a match opens its full match page
+
+Built from the same match data as everything else (no separate feed); the fixed tournament wiring lives in `src/lib/bracket.ts` and is re-checked against live results on every render.
 
 ## Stats
 

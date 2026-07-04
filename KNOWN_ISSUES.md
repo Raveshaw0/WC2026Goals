@@ -1,5 +1,9 @@
 # Known issues
 
+## Bracket wiring is a fixed map bound by kickoff order
+
+ESPN never returns the knockout bracket **linkage**, so `src/lib/bracket.ts` hardcodes the fixed WC2026 feeder map (which round-of-32 match feeds which round-of-16 slot, up through the final) and binds ESPN matches into it by round plus **kickoff order** (the Nth match of a round by kickoff is that round's slot N, which is how ESPN numbers its own "Round of 16 N Winner" placeholders). Two assumptions ride on this: the fixed map is correct for the real tournament, and ESPN keeps ordering a round's matches consistently. Both are guarded, not assumed blindly: `verifyStructure` re-derives the chain from live results every render and, for any decided slot whose feeders have also finished, checks the slot's two teams really are the winners (losers, for third place) of its feeders. A mismatch flips `consistent` false and the page shows a "wiring looks off" line instead of a wrong tree. If that ever appears, re-derive the feeder map from the live feed (trace each round's winners into the next round by team identity) and update the maps in `bracket.ts`. Cosmetic-safe: the underlying match data and every other page are unaffected.
+
 ## SBS link discovery uses an undocumented catalogue API
 
 HTML scraping was abandoned 2026-06-12 (the SBS pages are fully client-rendered; see git history for the original attempt). `/api/check-sbs` now fetches `catalogue.pr.sbsod.com/pages/fifa-world-cup-2026`, the JSON document behind SBS's own World Cup hub page, using the public `x-api-key` baked into SBS's browser bundle. One fetch resolves live, highlights, extended highlights, full match and mini match links for every published match at once.
