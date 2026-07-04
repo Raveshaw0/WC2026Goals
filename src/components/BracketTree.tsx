@@ -24,7 +24,7 @@ function abbrev(t: TeamSide): string {
   return t.abbrev || t.shortName || t.name;
 }
 
-function Flag({ team }: { team: TeamSide }) {
+function Flag({ team, dim = false }: { team: TeamSide; dim?: boolean }) {
   if (!team.flag) {
     return (
       <span
@@ -41,7 +41,10 @@ function Flag({ team }: { team: TeamSide }) {
       width={18}
       height={13}
       loading="lazy"
-      className="inline-block h-auto w-[18px] shrink-0 rounded-[2px]"
+      className={
+        "inline-block h-auto w-[18px] shrink-0 rounded-[2px]" +
+        (dim ? " opacity-50" : "")
+      }
     />
   );
 }
@@ -65,18 +68,23 @@ function TeamLine({
   const m = slot.match;
   const started =
     m && m.status !== "scheduled" && m.status !== "postponed";
-  const isWinner = shown && !resultHidden && team.winner;
+  // Only once a result is in (and revealed, under no-spoilers) does the loser
+  // grey out. Before that -- an upcoming or in-progress match with no winner
+  // yet -- both teams read in bright white.
+  const decided = shown && !resultHidden && !!m && (m.home.winner || m.away.winner);
+  const isWinner = decided && team.winner;
+  const isLoser = decided && !team.winner;
   const nameCls = !shown
     ? "italic text-zinc-500"
-    : resultHidden
-      ? "font-medium text-zinc-300"
+    : isLoser
+      ? "text-zinc-500"
       : isWinner
         ? "font-bold text-zinc-100"
-        : "text-zinc-500";
+        : "font-medium text-zinc-100";
   return (
     <div className="flex items-center gap-1.5">
       {shown ? (
-        <Flag team={team} />
+        <Flag team={team} dim={isLoser} />
       ) : (
         <span className="h-3 w-[18px] shrink-0 rounded-[2px] border border-dashed border-edge" />
       )}
@@ -88,7 +96,7 @@ function TeamLine({
           <span
             className={
               "text-xs font-bold tabular-nums " +
-              (isWinner ? "text-zinc-100" : "text-zinc-400")
+              (isLoser ? "text-zinc-400" : "text-zinc-100")
             }
           >
             {team.score ?? "-"}
@@ -219,11 +227,13 @@ function Connectors({
   colLen: number;
   idx: number;
 }) {
+  // Brand mint, a touch thicker than a hairline so the tree structure reads.
+  const H = "h-[3px] w-4 -translate-y-1/2 bg-accent";
   if (side === "center") {
     return (
       <>
-        <span className="absolute left-[-16px] top-1/2 h-0.5 w-4 -translate-y-1/2 bg-edge" />
-        <span className="absolute right-[-16px] top-1/2 h-0.5 w-4 -translate-y-1/2 bg-edge" />
+        <span className={"absolute left-[-16px] top-1/2 " + H} />
+        <span className={"absolute right-[-16px] top-1/2 " + H} />
       </>
     );
   }
@@ -232,14 +242,12 @@ function Connectors({
   const topOfPair = idx % 2 === 0;
   return (
     <>
-      <span className={"absolute top-1/2 h-0.5 w-4 -translate-y-1/2 bg-edge " + fwd} />
-      {!isR32 && (
-        <span className={"absolute top-1/2 h-0.5 w-4 -translate-y-1/2 bg-edge " + back} />
-      )}
+      <span className={"absolute top-1/2 " + H + " " + fwd} />
+      {!isR32 && <span className={"absolute top-1/2 " + H + " " + back} />}
       {colLen > 1 && (
         <span
           className={
-            "absolute w-0.5 bg-edge " +
+            "absolute w-[3px] bg-accent " +
             fwd +
             (topOfPair ? " top-1/2 bottom-0" : " top-0 h-1/2")
           }
