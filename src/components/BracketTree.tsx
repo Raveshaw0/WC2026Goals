@@ -7,7 +7,7 @@ import { SpoilerCover } from "@/components/SpoilerCover";
 import { useLiveMatches } from "@/hooks/useLiveMatches";
 import { useSpoiler } from "@/hooks/useSpoiler";
 import type { BracketData, BracketSlot } from "@/lib/bracket";
-import { buildBracket } from "@/lib/bracket";
+import { buildBracket, decided } from "@/lib/bracket";
 import type { Match, TeamSide } from "@/lib/types";
 
 // Layout constants. Connectors reach half a gap (16px) into the 32px flex gap
@@ -17,6 +17,11 @@ import type { Match, TeamSide } from "@/lib/types";
 // midpoint of its two feeders with no per-cell maths.
 const SLOT_H = 74;
 const HEIGHT = SLOT_H * 8;
+
+// Connector states: bright mint once the result is in, muted edge grey while the
+// path is still pending (keeps the tree structure visible).
+const LIT = "bg-accent";
+const DIM = "bg-edge";
 
 type Side = "left" | "right" | "center";
 
@@ -216,38 +221,51 @@ function SlotCard({ slot, slots }: { slot: BracketSlot; slots: BracketData["slot
 // forward line toward the centre; every cell except an R32 leaf has a back line
 // toward its feeders; paired feeders (any column with >1 cell) add a vertical
 // joining the pair, half from the top cell and half from the bottom.
+//
+// Segments light only once their result is in, so the lit portion of the tree
+// shows how far the tournament has run at a glance. A cell's forward stub and
+// its half of the pair vertical follow `fwdLit` (this match is decided, its
+// winner flowing onward); the back stub into a cell follows `backLit` (both of
+// its feeders are decided, so the matchup is set). Each half of a pair vertical
+// belongs to its own feeder, so the two feeders light their halves
+// independently. Unlit segments stay a muted edge grey.
 function Connectors({
   side,
   isR32,
   colLen,
   idx,
+  fwdLit,
+  backLit,
 }: {
   side: Side;
   isR32: boolean;
   colLen: number;
   idx: number;
+  fwdLit: boolean;
+  backLit: boolean;
 }) {
-  // Brand mint, a touch thicker than a hairline so the tree structure reads.
-  const H = "h-[3px] w-4 -translate-y-1/2 bg-accent";
-  if (side === "center") {
-    return (
-      <>
-        <span className={"absolute left-[-16px] top-1/2 " + H} />
-        <span className={"absolute right-[-16px] top-1/2 " + H} />
-      </>
-    );
-  }
+  // A touch thicker than a hairline so the tree structure reads.
+  const base = "h-[3px] w-4 -translate-y-1/2";
   const fwd = side === "left" ? "right-[-16px]" : "left-[-16px]";
   const back = side === "left" ? "left-[-16px]" : "right-[-16px]";
   const topOfPair = idx % 2 === 0;
+  const fwdC = fwdLit ? LIT : DIM;
   return (
     <>
-      <span className={"absolute top-1/2 " + H + " " + fwd} />
-      {!isR32 && <span className={"absolute top-1/2 " + H + " " + back} />}
+      <span className={"absolute top-1/2 " + base + " " + fwd + " " + fwdC} />
+      {!isR32 && (
+        <span
+          className={
+            "absolute top-1/2 " + base + " " + back + " " + (backLit ? LIT : DIM)
+          }
+        />
+      )}
       {colLen > 1 && (
         <span
           className={
-            "absolute w-[3px] bg-accent " +
+            "absolute w-[3px] " +
+            fwdC +
+            " " +
             fwd +
             (topOfPair ? " top-1/2 bottom-0" : " top-0 h-1/2")
           }
@@ -271,6 +289,15 @@ function Cell({
   data: BracketData;
 }) {
   const slot = data.slots[slotId];
+  // This cell's own match decided -> its winner flows onward (forward stub + its
+  // half of the pair vertical). Both feeders decided -> the matchup into this
+  // cell is set (back stub).
+  const fwdLit = decided(slot.match);
+  const backLit =
+    !!slot.feederA &&
+    !!slot.feederB &&
+    decided(data.slots[slot.feederA]?.match ?? null) &&
+    decided(data.slots[slot.feederB]?.match ?? null);
   return (
     <div className="relative flex flex-1 items-center">
       <Connectors
@@ -278,6 +305,8 @@ function Cell({
         isR32={slot.round === "round-of-32"}
         colLen={colLen}
         idx={idx}
+        fwdLit={fwdLit}
+        backLit={backLit}
       />
       <div className="relative z-[1] w-full">
         <SlotCard slot={slot} slots={data.slots} />
@@ -330,6 +359,12 @@ export function BracketTree({ initialMatches }: { initialMatches: Match[] }) {
     );
   }
 
+  // The Final's two feeders sit on opposite sides, so each of its stubs lights
+  // independently the moment that semifinal is decided.
+  const finalSlot = data.slots[data.finalId];
+  const sf1Lit = decided(data.slots[finalSlot.feederA ?? ""]?.match ?? null);
+  const sf2Lit = decided(data.slots[finalSlot.feederB ?? ""]?.match ?? null);
+
   return (
     <div>
       <div ref={scrollRef} className="-mx-4 overflow-x-auto px-4 pb-3">
@@ -376,9 +411,20 @@ export function BracketTree({ initialMatches }: { initialMatches: Match[] }) {
             {/* Centre column: final centred; third-place pinned below. */}
             <div className={"relative h-full shrink-0 " + CENTER_W}>
               <div className="absolute inset-x-0 top-1/2 flex -translate-y-1/2 items-center">
-                <Connectors side="center" isR32={false} colLen={1} idx={0} />
+                <span
+                  className={
+                    "absolute left-[-16px] top-1/2 h-[3px] w-4 -translate-y-1/2 " +
+                    (sf1Lit ? LIT : DIM)
+                  }
+                />
+                <span
+                  className={
+                    "absolute right-[-16px] top-1/2 h-[3px] w-4 -translate-y-1/2 " +
+                    (sf2Lit ? LIT : DIM)
+                  }
+                />
                 <div className="relative z-[1] w-full">
-                  <SlotCard slot={data.slots[data.finalId]} slots={data.slots} />
+                  <SlotCard slot={finalSlot} slots={data.slots} />
                 </div>
               </div>
               <div className="absolute inset-x-0 bottom-0">

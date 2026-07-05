@@ -77,7 +77,7 @@ const RIGHT_QF = ["QF-3", "QF-4"];
 
 const byKickoff = (a: Match, b: Match) => a.kickoff.localeCompare(b.kickoff);
 
-function decided(m: Match | null): boolean {
+export function decided(m: Match | null): boolean {
   return !!m && m.status === "finished" && (m.home.winner || m.away.winner);
 }
 
