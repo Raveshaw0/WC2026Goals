@@ -204,11 +204,15 @@ export function buildBracket(all: Match[]): BracketData {
   return {
     slots,
     leftColumns: [LEFT_R32.map((n) => `R32-${n}`), LEFT_R16, LEFT_QF, ["SF-1"]],
+    // Inner -> outer so the right half cascades INWARD toward the centre: SF-2
+    // sits beside the Final, R32 on the far edge. This mirrors the left half and
+    // matches RIGHT_LABELS + the right-side connectors (forward line points left,
+    // toward the Final).
     rightColumns: [
-      RIGHT_R32.map((n) => `R32-${n}`),
-      RIGHT_R16,
-      RIGHT_QF,
       ["SF-2"],
+      RIGHT_QF,
+      RIGHT_R16,
+      RIGHT_R32.map((n) => `R32-${n}`),
     ],
     finalId: "F",
     thirdPlaceId: "TP",
