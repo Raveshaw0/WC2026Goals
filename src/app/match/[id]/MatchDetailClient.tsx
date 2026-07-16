@@ -66,11 +66,18 @@ function TeamColumn({ team, side }: { team: TeamSide; side: "home" | "away" }) {
   );
 }
 
-// Poll the summary (events, stats, lineups) every 60s from 75 minutes before
-// kickoff (lineups publish ~1hr out) until the live window closes. The score
-// itself rides the faster 4s /api/live poll via useLiveMatches. Also returns
-// in-game highlight clips, which refresh on the same cadence (new goal clips
-// appear during the match).
+// Poll the match detail (events, stats, lineups and in-game highlight clips)
+// every 60s. The score itself rides the faster 4s /api/live poll via
+// useLiveMatches. Two refresh windows overlap here:
+//   - summary: 75 minutes before kickoff (lineups publish ~1hr out) until the
+//     live window closes; it's final after that.
+//   - clips: from the same pre-kickoff point until SBS's full highlight video
+//     supersedes the reel, or 6 hours past kickoff as a backstop. SBS keeps
+//     publishing goal clips DURING the match and for a while AFTER full time,
+//     so the clip poll deliberately outlives both the live window and the
+//     "finished" status. The old single live-window gate froze the reel at the
+//     whistle (and, since fetchOnce no-ops while the tab is hidden, often
+//     earlier, at the last foreground poll before switching to the SBS stream).
 function useSummaryPolling(
   match: Match,
   initial: MatchSummary,
@@ -79,15 +86,27 @@ function useSummaryPolling(
   const [summary, setSummary] = useState(initial);
   const [clips, setClips] = useState(initialClips);
   useEffect(() => {
-    const shouldPoll = () => {
+    const ko = new Date(match.kickoff).getTime();
+    const preKickoff = ko - 75 * 60 * 1000;
+
+    // Summary is worth polling only inside the live window; it's final after.
+    const summaryWanted = () => {
       if (match.status === "finished" || match.status === "postponed") {
         return false;
       }
-      const ko = new Date(match.kickoff).getTime();
       const { end } = liveWindowFor(match);
       const now = Date.now();
-      return now >= ko - 75 * 60 * 1000 && now <= end;
+      return now >= preKickoff && now <= end;
     };
+    // Clips keep arriving during AND after the match; stop only once the
+    // official highlight video is embedded, or 6h past kickoff as a backstop
+    // (the in-game reel is fully published within ~2h of kickoff in practice).
+    const clipsWanted = () => {
+      if (match.sbs?.ytHighlightsId) return false;
+      const now = Date.now();
+      return now >= preKickoff && now <= ko + 6 * 60 * 60 * 1000;
+    };
+    const shouldPoll = () => summaryWanted() || clipsWanted();
 
     const fetchOnce = async () => {
       if (document.hidden) return;
@@ -106,12 +125,13 @@ function useSummaryPolling(
     };
 
     // Always refresh once on mount. Next's client router cache can serve a
-    // stale page on back-navigation, so the server-rendered summary may lag
-    // (e.g. events frozen at the score from when you first opened the match).
+    // stale page on back-navigation, so the server-rendered summary/clips may
+    // lag (e.g. events frozen at the score from when you first opened it).
     void fetchOnce();
 
     // Refresh the moment the tab regains focus (e.g. returning from the SBS
-    // stream), so events/stats aren't stuck until the next interval tick.
+    // stream). Gated on shouldPoll (not just the summary window) so coming back
+    // to a just-finished match still pulls the clips SBS has added since.
     const onVisibility = () => {
       if (!document.hidden && shouldPoll()) void fetchOnce();
     };
@@ -121,6 +141,11 @@ function useSummaryPolling(
     if (shouldPoll()) {
       t = setInterval(() => {
         if (shouldPoll()) void fetchOnce();
+        else if (t) {
+          // Past the clip window with nothing left to pull; stop ticking.
+          clearInterval(t);
+          t = null;
+        }
       }, 60_000);
     }
     return () => {
@@ -128,7 +153,7 @@ function useSummaryPolling(
       if (t) clearInterval(t);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [match.id, match.status]);
+  }, [match.id, match.status, match.sbs?.ytHighlightsId]);
   return { summary, clips };
 }
 
