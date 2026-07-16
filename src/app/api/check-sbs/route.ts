@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { titleMentionsTeam } from "@/lib/aliases";
+import { titleHasFixture, versusPairs, isRecapShow } from "@/lib/aliases";
 import { getAllSbsLinks, dbConfigured, upsertSbsLink } from "@/lib/db";
 import { fetchAllMatches } from "@/lib/espn";
 import { liveWindowFor } from "@/lib/liveWindow";
@@ -138,18 +138,32 @@ async function fetchYoutubeHighlights(): Promise<RailItem[]> {
 
 // Rail titles look like "Korea Republic v Czechia: Group A" or, for live,
 // "FIFA World Cup 2026™: Canada v Bosnia and Herzegovina: Group B: Live
-// Stream". Both team names must appear (alias-aware), which survives all of
-// these shapes without parsing them.
+// Stream"; YouTube titles like "England v Argentina: FIFA World Cup 2026
+// Highlights Semi-final". A candidate must contain the two teams as an
+// adjacent "A v B" pair, which rejects multi-game roundups that merely mention
+// both teams from separate games (the cross-match bug). Among candidates,
+// prefer the fewest versus-pairs (a dedicated single-match clip over a roundup)
+// and a plain highlights cut over the "Highlights Show" recap; feed order
+// (newest first) breaks any remaining tie.
 function findForMatch(items: RailItem[], match: Match): string | null {
+  let best: RailItem | null = null;
+  let bestPairs = Infinity;
+  let bestRecap = true;
   for (const item of items) {
+    if (!titleHasFixture(item.title, match.home.name, match.away.name)) continue;
+    const pairs = versusPairs(item.title);
+    const recap = isRecapShow(item.title);
     if (
-      titleMentionsTeam(item.title, match.home.name) &&
-      titleMentionsTeam(item.title, match.away.name)
+      best === null ||
+      pairs < bestPairs ||
+      (pairs === bestPairs && !recap && bestRecap)
     ) {
-      return item.url;
+      best = item;
+      bestPairs = pairs;
+      bestRecap = recap;
     }
   }
-  return null;
+  return best ? best.url : null;
 }
 
 async function handle(): Promise<NextResponse> {

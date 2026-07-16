@@ -35,7 +35,43 @@ export function aliasesFor(teamName: string): string[] {
   return [norm];
 }
 
-export function titleMentionsTeam(title: string, teamName: string): boolean {
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// The versus separator as SBS writes it in titles: "v", "vs", or "vs.".
+const VERSUS = "\\s+(?:vs?\\.?)\\s+";
+
+// A title matches a fixture only if it contains the two teams as an adjacent
+// "A v B" pair (either order), not merely both names somewhere in the title.
+// This is the crucial guard against multi-game roundup titles like
+// "Quarter-finals: Norway v England, Argentina v Switzerland", which mention
+// England and Argentina from two DIFFERENT games and would otherwise
+// cross-match the England v Argentina fixture.
+export function titleHasFixture(
+  title: string,
+  home: string,
+  away: string
+): boolean {
   const t = normalizeName(title);
-  return aliasesFor(teamName).some((a) => t.includes(a));
+  const a = aliasesFor(home).map(escapeRe).join("|");
+  const b = aliasesFor(away).map(escapeRe).join("|");
+  const l = "(?:^|[^a-z0-9])";
+  const r = "(?:[^a-z0-9]|$)";
+  const pair = (x: string, y: string) =>
+    new RegExp(`${l}(?:${x})${VERSUS}(?:${y})${r}`);
+  return pair(a, b).test(t) || pair(b, a).test(t);
+}
+
+// How many "A v B" separators the title carries. A dedicated single-match clip
+// has one; a roundup show listing several games has more. Lets us rank a real
+// match clip above a roundup that merely happens to contain the right pair.
+export function versusPairs(title: string): number {
+  return (normalizeName(title).match(/\s(?:vs?\.?)\s/g) ?? []).length;
+}
+
+// SBS's magazine-format recap ("FIFA Highlights Show | ...") versus the plain
+// per-match highlights cut. Prefer the latter when both exist for a fixture.
+export function isRecapShow(title: string): boolean {
+  return /highlights show|round[ -]?up|magazine/.test(normalizeName(title));
 }
