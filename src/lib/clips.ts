@@ -76,8 +76,13 @@ function parseStory(s: any): Story | null {
 
 async function fetchStories(): Promise<Story[]> {
   try {
-    // 60s during live; the feed only changes when SBS publishes a new clip.
-    const res = await fetch(FEED, { next: { revalidate: 60 } });
+    // No Data Cache: measured in prod that a `next: { revalidate }` entry for
+    // this feed froze at an early-match snapshot (5 clips, isLive true) and
+    // never revalidated, hours after full time, so the in-game reel stopped
+    // growing partway through the match. The route is force-dynamic and polled
+    // ~60s, and the feed is ~1.5MB, so fetching it fresh each time is fine and
+    // guarantees the newest clips.
+    const res = await fetch(FEED, { cache: "no-store" });
     if (!res.ok) throw new Error(`blaze ${res.status}`);
     const data = await res.json();
     return ((data?.result ?? []) as any[])
