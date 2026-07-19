@@ -278,6 +278,17 @@ export function MatchDetailClient({
   const { watched, favourites, toggleWatched, toggleFavourite } =
     useUserState();
   const spoiler = useSpoiler();
+
+  // Lazy, non-blocking SBS link discovery trigger (mirrors the home page), so
+  // opening a match page also refreshes its SBS/YouTube links, not just the
+  // home page. The endpoint is self-throttled per instance. Without this, links
+  // only refreshed on home-page loads and the daytime-UTC GitHub Action, so a
+  // match whose highlights posted overnight (e.g. the 3rd place playoff) never
+  // got them while you sat on its match page.
+  useEffect(() => {
+    fetch("/api/check-sbs", { method: "POST" }).catch(() => {});
+  }, []);
+
   const matchHidden = spoiler.matchHidden(match.id);
   const isWatched = watched.has(match.id);
   const isFavourite = favourites.has(match.id);

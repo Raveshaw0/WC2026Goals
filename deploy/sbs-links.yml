@@ -1,11 +1,12 @@
 name: SBS link discovery
 
-# Backstop for the lazy home-page trigger. Vercel Hobby crons only run daily,
-# so GitHub Actions does the 15-minute schedule instead, daytime UTC only
-# (covers Melbourne evenings and overnight US match windows).
+# Backstop for the lazy page-load trigger. Vercel Hobby crons only run daily,
+# so GitHub Actions does the 15-minute schedule instead. Runs 24h (was
+# daytime-UTC only, which missed matches whose highlights posted overnight UTC,
+# e.g. the 3rd place playoff and any evening-UTC kickoff like the final).
 on:
   schedule:
-    - cron: "*/15 8-19 * * *"
+    - cron: "*/15 * * * *"
   workflow_dispatch: {}
 
 jobs:
