@@ -55,7 +55,7 @@ Rail and video titles match a fixture when the two teams appear as an adjacent "
 
 ## Discovery pipeline (`/api/check-sbs`)
 
-Runs the hub fetch + YouTube parse, upserts per-match links into `sbs_links`. Never overwrites a stored link with null (videos age off rails but stay watchable). Triggered lazily by every schedule page load (self-throttled to one pass per 5 minutes per instance) and by `.github/workflows/sbs-links.yml` every 15 minutes (08:00 to 20:00 UTC) as a backstop, because Vercel Hobby crons are daily-only.
+Runs the hub fetch + YouTube parse, upserts per-match links into `sbs_links`. Never overwrites a stored link with null (videos age off rails but stay watchable). Triggered lazily by every schedule **and match** page load (self-throttled to one pass per 5 minutes per instance) and by `.github/workflows/sbs-links.yml` every 15 minutes, 24h, as a backstop, because Vercel Hobby crons are daily-only. (The Action used to run daytime-UTC only and discovery fired only from the home page, so a match whose highlights posted overnight UTC, e.g. the 3rd place playoff, went unmatched until someone loaded the home page.)
 
 ## Live polling model
 
